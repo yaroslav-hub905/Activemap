@@ -1,0 +1,9 @@
+# Bot
+python-telegram-bot==20.7
+apscheduler==3.10.4
+python-dotenv==1.0.1
+# API
+fastapi==0.111.0
+uvicorn==0.29.0
+python-multipart==0.0.9
+requests==2.31.0
