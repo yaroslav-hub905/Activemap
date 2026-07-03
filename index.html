@@ -1858,8 +1858,8 @@ function switchReqTab(tab){
 function renderRequests(){
   const scroll=document.getElementById('req-scroll');
   if(reqTab==='in'){
-    // Показываем только pending и declined — принятые ушли в Мэтчи
-    const visible=receivedReqs.filter(r=>r.status!=='accepted');
+    // Показываем только pendin      // Показываем только pending — отклонённые и принятые скрыты
+        const visible=receivedReqs.filter(r=>r.status==='pending');
     if(!visible.length){
       const hasAccepted=receivedReqs.some(r=>r.status==='accepted');
       const icon=hasAccepted?'🤝':'📭';
@@ -1871,6 +1871,7 @@ function renderRequests(){
     scroll.innerHTML='';
     visible.forEach(r=>{
       const card=document.createElement('div');card.className='req-card';
+          card.setAttribute('data-req-id',r.id);
       const fromInitial=esc((r.fromName||'?').charAt(0));
       const ph=r.photo?`<img src="${esc(r.photo)}" alt="">`:`${fromInitial}`;
       const fromCityDisplay=esc(lang==='en'?(CITIES[r.fromCity]?.en||r.fromCity):r.fromCity);
@@ -1954,7 +1955,22 @@ async function declineReq(id){
   if(!r)return;
   r.status='declined';
   save('receivedReqs',receivedReqs);
+    // Анимация исчезновения карточки с плавным эффектом
+    const cardEl=document.querySelector(`[data-req-id="${id}"]`);
+    if(cardEl){
+          cardEl.style.transition='all 0.35s ease';
+          cardEl.style.opacity='0';
+          cardEl.style.transform='translateX(60px) scale(0.9)';
+          cardEl.style.maxHeight=cardEl.offsetHeight+'px';
+          setTimeout(()=>{
+                  cardEl.style.maxHeight='0';
+                  cardEl.style.marginBottom='0';
+                  cardEl.style.padding='0';
+                  setTimeout(()=>renderRequests(),150);
+          },300);
+    }else{
   renderRequests();
+    }
   updateReqBadge();
   showToast(t('declined'));
   if(API&&TG_INIT) await apiCall('POST',`/api/requests/${id}/decline`);
