@@ -121,6 +121,13 @@ def update_user_city(tg_id: int, city: str) -> None:
     with get_db() as db:
         db.execute("UPDATE users SET city = ? WHERE tg_id = ?", (city, tg_id))
 
+def update_username(tg_id: int, username: str | None) -> None:
+        """Обновить только username (вызывается при каждом /start)."""
+        with get_db() as db:
+                    db.execute(
+                                    "UPDATE users SET username = ? WHERE tg_id = ?",
+                                    (username, tg_id),
+                    )
 
 # ── Activities ───────────────────────────────────────────────
 
