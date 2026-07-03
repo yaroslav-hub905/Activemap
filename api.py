@@ -165,13 +165,13 @@ def express_interest(body: InterestBody, x_init_data: str = Header(None)):
     if not me:
         raise HTTPException(404, "Register first")
     # Проверяем: если владелец метки — фейк, отклоняем автоматически
-        if FAKE_USER_IDS:
-                    with db.get_db() as conn:
-                                    act_row = conn.execute("SELECT user_id FROM activities WHERE id=?", (body.activity_id,)).fetchone()
-                                    if act_row and act_row["user_id"] in FAKE_USER_IDS:
-                                                        return {"ok": True, "auto_declined": True}
-    try:
-        db.add_interest(body.activity_id, me["tg_id"])
+    if FAKE_USER_IDS:
+                with db.get_db() as conn:
+                            act_row = conn.execute("SELECT user_id FROM activities WHERE id=?", (body.activity_id,)).fetchone()
+                            if act_row and act_row["user_id"] in FAKE_USER_IDS:
+                                                return {"ok": True, "auto_declined": True}
+try:
+    db.add_interest(body.activity_id, me["tg_id"])
     except Exception as e:
         if "UNIQUE" in str(e):
             raise HTTPException(409, "Already interested")
