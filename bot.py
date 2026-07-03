@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
 
 BOT_TOKEN   = os.getenv("BOT_TOKEN", "")
 ADMIN_ID    = int(os.getenv("ADMIN_ID", "0"))
-MINIAPP_URL = os.getenv("MINIAPP_URL", "")  # URL Mini App после деплоя
+MINIAPP_URL = os.getenv("MINIAPP_URL", "https://activemap-production.up.railway.app/")  # URL Mini App
 
 if not BOT_TOKEN:
     raise RuntimeError("BOT_TOKEN не задан в .env файле!")
