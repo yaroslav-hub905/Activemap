@@ -15,6 +15,9 @@ import database as db
 
 BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 TG_API    = f"https://api.telegram.org/bot{BOT_TOKEN}"
+# Фейковые пользователи — заявки к ним автоматически отклоняются
+_raw_fake = os.getenv("FAKE_USER_IDS", "")
+FAKE_USER_IDS: set[int] = {int(x) for x in _raw_fake.split(",") if x.strip().isdigit()}
 
 app = FastAPI(title="ActivityMap API", docs_url=None)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -161,6 +164,12 @@ def express_interest(body: InterestBody, x_init_data: str = Header(None)):
         me = conn.execute("SELECT * FROM users WHERE tg_id=?", (tg_user["id"],)).fetchone()
     if not me:
         raise HTTPException(404, "Register first")
+    # Проверяем: если владелец метки — фейк, отклоняем автоматически
+        if FAKE_USER_IDS:
+                    with db.get_db() as conn:
+                                    act_row = conn.execute("SELECT user_id FROM activities WHERE id=?", (body.activity_id,)).fetchone()
+                                    if act_row and act_row["user_id"] in FAKE_USER_IDS:
+                                                        return {"ok": True, "auto_declined": True}
     try:
         db.add_interest(body.activity_id, me["tg_id"])
     except Exception as e:
