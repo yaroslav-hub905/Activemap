@@ -15,9 +15,6 @@ import database as db
 
 BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 TG_API    = f"https://api.telegram.org/bot{BOT_TOKEN}"
-# Фейковые пользователи — заявки к ним автоматически отклоняются
-_raw_fake = os.getenv("FAKE_USER_IDS", "")
-FAKE_USER_IDS: set[int] = {int(x) for x in _raw_fake.split(",") if x.strip().isdigit()}
 
 app = FastAPI(title="ActivityMap API", docs_url=None)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -41,8 +38,8 @@ def validate_init_data(init_data: str) -> dict:
     received_hash = params.pop("hash", "")
     data_check = "\n".join(f"{k}={v}" for k, v in sorted(params.items()))
     secret  = hmac.new(b"WebAppData", BOT_TOKEN.encode(), hashlib.sha256).digest()
-    computed = hmac.new(secret, data_check.encode(), hashlib.sha256).hexdigest()
-    if not hmac.compare_digest(computed, received_hash):
+    calc_hash = hmac.new(secret, data_check.encode(), hashlib.sha256).hexdigest()
+    if calc_hash != received_hash:
         raise HTTPException(401, "Invalid signature")
     try:
         return json.loads(params.get("user", "{}"))
@@ -53,6 +50,20 @@ def get_tg_user(x_init_data: str = Header(None)):
     if not x_init_data:
         raise HTTPException(401, "No init data")
     return validate_init_data(x_init_data)
+
+def get_tg_user_optional(x_init_data: str = Header(None)):
+    """
+    Как get_tg_user, но не бросает 401 — возвращает None, если initData
+    отсутствует или невалиден. Используется публичными read-эндпоинтами
+    (лента меток), чтобы карта не оставалась пустой из-за проблем с
+    аутентификацией одного клиента.
+    """
+    if not x_init_data:
+        return None
+    try:
+        return validate_init_data(x_init_data)
+    except HTTPException:
+        return None
 
 # ── Telegram push helper ──────────────────────────────────────
 def send_tg_message(chat_id: int, text: str):
@@ -77,15 +88,19 @@ LABELS = {'coffee':'Кофе / Чай','walk':'Прогулка','bar':'Бар /
 # ── Models ────────────────────────────────────────────────────
 class RegisterBody(BaseModel):
     name: str
-    age: int
+    age: Optional[int] = None
     city: str
     init_data: str
+    lat: Optional[float] = None
+    lng: Optional[float] = None
 
 class PinBody(BaseModel):
     category: str
     description: Optional[str] = ""
     time_text: str
     city: str
+    lat: Optional[float] = None
+    lng: Optional[float] = None
 
 class InterestBody(BaseModel):
     activity_id: int
@@ -97,12 +112,12 @@ def auth(body: RegisterBody):
     tg_id    = tg_user["id"]
     username = tg_user.get("username", "")
     name     = body.name.strip()[:30]
-    age      = max(18, min(80, body.age))
+    age      = max(18, min(80, body.age)) if body.age is not None else 18
     city     = body.city.strip()[:50]
     if not name or not city:
         raise HTTPException(400, "name and city required")
-    db.upsert_user(tg_id, username, name, age, city)
-    return {"ok": True, "user": {"tg_id": tg_id, "name": name, "age": age, "city": city}}
+    db.upsert_user(tg_id, username, name, age, city, body.lat, body.lng)
+    return {"ok": True, "user": {"tg_id": tg_id, "name": name, "age": age, "city": city, "lat": body.lat, "lng": body.lng}}
 
 @app.get("/api/me")
 def get_me(request: Request, x_init_data: str = Header(None)):
@@ -117,19 +132,28 @@ def get_me(request: Request, x_init_data: str = Header(None)):
 
 # ── Pins ──────────────────────────────────────────────────────
 @app.get("/api/pins")
-def get_pins(city: str, x_init_data: str = Header(None)):
-    tg_user = get_tg_user(x_init_data)
-    with db.get_db() as conn:
-        me = conn.execute("SELECT * FROM users WHERE tg_id=?", (tg_user["id"],)).fetchone()
-    activities = db.get_activities_in_city(city)
+def get_pins(x_init_data: str = Header(None)):
+    """
+    Публичный эндпоинт: отдаёт ВСЕ активные метки реальных пользователей,
+    без фильтра по городу — люди из разных городов видят друг друга.
+    initData опционален: если его нет или он невалиден, метки всё равно
+    отдаются (аутентификация нужна только чтобы пометить isMine).
+    """
+    tg_user = get_tg_user_optional(x_init_data)
+    me = None
+    if tg_user:
+        with db.get_db() as conn:
+            me = conn.execute("SELECT * FROM users WHERE tg_id=?", (tg_user["id"],)).fetchone()
+    activities = db.get_all_active_activities()
     result = []
     for a in activities:
-        cat = a.get("category", "other")
+        row = dict(a)
+        cat = row.get("category", "other")
         result.append({
-            **dict(a),
+            **row,
             "emoji":    EMOJIS.get(cat, "✨"),
             "catLabel": LABELS.get(cat, "Другое"),
-            "isMine":   bool(me and a["user_id"] == me["tg_id"])
+            "isMine":   bool(me and row["user_id"] == me["tg_id"])
         })
     return {"pins": result}
 
@@ -140,8 +164,8 @@ def create_pin(body: PinBody, x_init_data: str = Header(None)):
         me = conn.execute("SELECT * FROM users WHERE tg_id=?", (tg_user["id"],)).fetchone()
     if not me:
         raise HTTPException(404, "Register first")
-    act_id = db.create_activity(me["tg_id"], body.category, body.description, body.time_text, body.city)
-    return {"ok": True, "id": act_id}
+    act_id = db.create_activity(me["tg_id"], body.category, body.description, body.time_text, body.city, body.lat, body.lng)
+    return {"ok": True, "id": act_id, "lat": body.lat, "lng": body.lng}
 
 @app.delete("/api/pins/mine")
 def delete_my_pin(x_init_data: str = Header(None)):
@@ -164,14 +188,9 @@ def express_interest(body: InterestBody, x_init_data: str = Header(None)):
         me = conn.execute("SELECT * FROM users WHERE tg_id=?", (tg_user["id"],)).fetchone()
     if not me:
         raise HTTPException(404, "Register first")
-    # Проверяем: если владелец метки — фейк, отклоняем автоматически
-    if FAKE_USER_IDS:
-                with db.get_db() as conn:
-                            act_row = conn.execute("SELECT user_id FROM activities WHERE id=?", (body.activity_id,)).fetchone()
-                            if act_row and act_row["user_id"] in FAKE_USER_IDS:
-                                                return {"ok": True, "auto_declined": True}
-try:
-    db.add_interest(body.activity_id, me["tg_id"])
+
+    try:
+        db.add_interest(body.activity_id, me["tg_id"])
     except Exception as e:
         if "UNIQUE" in str(e):
             raise HTTPException(409, "Already interested")
@@ -185,10 +204,11 @@ try:
             (body.activity_id,)
         ).fetchone()
     if row and row["owner_tg_id"] and row["owner_tg_id"] != tg_user["id"]:
-        cat   = row.get("category", "other")
+        row_d = dict(row)
+        cat   = row_d.get("category", "other")
         emoji = EMOJIS.get(cat, "✨")
         label = LABELS.get(cat, "Другое")
-        desc  = row.get("description") or ""
+        desc  = row_d.get("description") or ""
         msg = (
             f"👋 <b>{me['name']}</b> ({me['city']}) хочет присоединиться к твоей активности!\n\n"
             f"{emoji} <b>{label}</b>" + (f" · {desc}" if desc else "") +
