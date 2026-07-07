@@ -1,0 +1,2631 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>ActivityMap</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js"></script>
+<style>
+/* ══ TOKENS ══════════════════════════════════════════════════ */
+:root{
+  --primary:#E8845A; --primary-light:#FDF0EA;
+  --secondary:#4ECDA4; --secondary-light:rgba(78,205,164,.12);
+  --bg:#F5F3EF; --card:#FFFFFF; --card2:#F0EDE8;
+  --text:#1A1A1A; --text2:#6B6B6B; --text3:#AAAAAA;
+  --border:#EBEBEB; --border2:#D8D5D0;
+  --danger:#E24B4A; --success:#27AE60;
+  /* Floating pill nav */
+  --nav-h:80px; /* pill 60px + 20px gap from bottom */
+  --safe-b:env(safe-area-inset-bottom,0px); --safe-t:env(safe-area-inset-top,0px);
+  --radius:14px; --radius-lg:20px;
+  --shadow:0 2px 12px rgba(0,0,0,.1);
+  --pill-bg:rgba(255,255,255,.90);
+  --pill-border:rgba(0,0,0,.07);
+  --pill-shadow:0 8px 32px rgba(0,0,0,.18),0 2px 8px rgba(0,0,0,.1);
+}
+[data-theme=dark]{
+  --bg:#0D0D14; --card:#161620; --card2:#1E1E2A;
+  --text:#F0EDE8; --text2:#8A8890; --text3:#4A4858;
+  --border:#24242E; --border2:#30303C;
+  --primary-light:rgba(232,132,90,.15);
+  --secondary-light:rgba(78,205,164,.1);
+  --shadow:0 2px 12px rgba(0,0,0,.5);
+  --pill-bg:rgba(18,18,26,.92);
+  --pill-border:rgba(255,255,255,.09);
+  --pill-shadow:0 8px 36px rgba(0,0,0,.55),0 2px 8px rgba(0,0,0,.3);
+}
+
+/* ══ BASE ════════════════════════════════════════════════════ */
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;background:var(--bg);color:var(--text);transition:background .2s,color .2s}
+
+/* ══ OVERLAY SCREENS ═════════════════════════════════════════ */
+.overlay{position:fixed;inset:0;z-index:2000;background:var(--bg);display:flex;flex-direction:column;overflow-y:auto;transition:background .2s}
+.overlay.hidden{display:none}
+
+/* ── welcome screen — Zenly dark immersive ── */
+#geo-screen{
+  background:linear-gradient(165deg,#0D0D14 0%,#11151E 45%,#0D1A18 100%)!important;
+}
+.welcome-body{
+  flex:1;display:flex;flex-direction:column;
+  justify-content:center;align-items:center;
+  padding:40px 28px;text-align:center;gap:0;
+}
+.welcome-logo{font-size:72px;margin-bottom:18px;line-height:1}
+.welcome-title{
+  font-size:32px;font-weight:900;margin-bottom:10px;letter-spacing:-.5px;
+  background:linear-gradient(135deg,#4ECDA4 0%,#62D9B4 50%,#E8845A 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.welcome-sub{
+  font-size:16px;color:rgba(240,237,232,.65);
+  line-height:1.6;margin-bottom:32px;max-width:300px;
+}
+.welcome-features{display:flex;flex-direction:column;gap:9px;width:100%;margin-bottom:36px}
+.welcome-feat{
+  display:flex;align-items:center;gap:12px;
+  background:rgba(255,255,255,.05);
+  border-radius:14px;padding:13px 16px;
+  border:1px solid rgba(255,255,255,.08);text-align:left;
+}
+.welcome-feat-icon{font-size:22px;flex-shrink:0}
+.welcome-feat-text{font-size:14px;color:rgba(240,237,232,.8);line-height:1.4}
+.welcome-feat-text b{color:#fff;font-weight:700}
+.welcome-start-btn{
+  width:100%;padding:17px;border-radius:var(--radius);
+  background:linear-gradient(135deg,#4ECDA4 0%,#38B896 100%);
+  border:none;color:#fff;font-size:17px;font-weight:800;
+  cursor:pointer;font-family:inherit;letter-spacing:.01em;
+  box-shadow:0 4px 24px rgba(78,205,164,.4),0 2px 8px rgba(0,0,0,.2);
+  transition:opacity .15s,transform .12s;
+}
+.welcome-start-btn:active{opacity:.88;transform:scale(.98)}
+.welcome-hint{font-size:12px;color:rgba(240,237,232,.35);margin-top:14px}
+.primary-btn{width:100%;padding:15px;border-radius:var(--radius);background:var(--primary);border:none;color:#fff;font-size:16px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:10px}
+.secondary-btn{width:100%;padding:13px;border-radius:var(--radius);background:transparent;border:1.5px solid var(--border2);color:var(--text2);font-size:15px;cursor:pointer;font-family:inherit}
+
+/* ── registration ── */
+.reg-body{flex:1;padding:24px 20px 36px;display:flex;flex-direction:column}
+.reg-logo{font-size:44px;margin-bottom:14px}
+.reg-title{font-size:24px;font-weight:800;margin-bottom:5px}
+.reg-sub{font-size:14px;color:var(--text2);line-height:1.5;margin-bottom:24px}
+.field-label{font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px;letter-spacing:.02em;text-transform:uppercase}
+.field-input{width:100%;border:1.5px solid var(--border);border-radius:var(--radius);padding:13px 16px;font-size:16px;font-family:inherit;outline:none;color:var(--text);background:var(--card);margin-bottom:16px;transition:border-color .15s}
+.field-input:focus{border-color:var(--primary)}
+.city-auto{display:flex;align-items:center;gap:10px;background:var(--secondary-light);border:1.5px solid var(--secondary);border-radius:var(--radius);padding:13px 16px;margin-bottom:16px;font-size:15px;font-weight:600;color:var(--text)}
+.city-auto-change{margin-left:auto;font-size:13px;color:var(--secondary);font-weight:600;cursor:pointer;white-space:nowrap}
+.geo-loading{display:flex;align-items:center;gap:10px;background:var(--primary-light);border-radius:var(--radius);padding:13px 16px;margin-bottom:16px;font-size:14px;color:var(--primary)}
+.spinner{width:18px;height:18px;border:2.5px solid var(--primary);border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* city picker grid */
+.city-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+.city-card{border:1.5px solid var(--border);border-radius:var(--radius);padding:16px 12px;display:flex;flex-direction:column;align-items:center;gap:8px;cursor:pointer;transition:all .15s;background:var(--card);text-align:center}
+.city-card:active{transform:scale(.96)}
+.city-card.selected{border-color:var(--primary);background:var(--primary-light)}
+.city-card .cc-flag{font-size:30px}
+.city-card .cc-name{font-size:14px;font-weight:700;color:var(--text)}
+.city-card .cc-sub{font-size:11px;color:var(--text2)}
+.city-card.selected .cc-name{color:var(--primary)}
+
+/* ══ MAIN APP ════════════════════════════════════════════════ */
+/* Screens are full-height — floating pill nav overlays from below */
+.screen{position:absolute;inset:0;bottom:0;display:none;flex-direction:column;overflow:hidden}
+.screen.active{display:flex}
+/* Scrollable content in non-map screens needs bottom padding for pill nav */
+.matches-scroll,.req-scroll{padding-bottom:calc(var(--nav-h) + var(--safe-b) + 8px)!important}
+#profile-screen{overflow-y:auto}
+#profile-screen .profile-wrap{padding-bottom:calc(var(--nav-h) + var(--safe-b) + 20px)}
+
+/* ── Zenly floating pill nav ── */
+#nav{
+  position:fixed;
+  bottom:calc(14px + var(--safe-b));
+  left:50%;
+  transform:translateX(-50%);
+  height:68px;
+  background:var(--pill-bg);
+  backdrop-filter:blur(24px);
+  -webkit-backdrop-filter:blur(24px);
+  border:1px solid var(--pill-border);
+  border-radius:34px;
+  display:flex;
+  align-items:center;
+  padding:0 8px;
+  gap:0;
+  z-index:800;
+  box-shadow:var(--pill-shadow);
+  transition:background .2s,border-color .2s,box-shadow .2s;
+  /* Wide pill — nearly full screen width on any phone */
+  width:calc(100vw - 28px);
+  max-width:520px;
+}
+.nav-btn{
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:4px;
+  cursor:pointer;
+  color:var(--text2);
+  font-size:11px;
+  font-weight:600;
+  border:none;
+  background:none;
+  letter-spacing:.02em;
+  transition:color .15s,background .15s;
+  position:relative;
+  padding:8px 4px;
+  border-radius:26px;
+  height:54px;
+}
+.nav-btn.active{color:var(--primary);background:var(--primary-light)}
+.nav-btn svg{width:24px;height:24px;stroke-width:1.8;transition:transform .15s}
+.nav-btn.active svg{transform:scale(1.1)}
+.nav-center{flex:0 0 auto;display:flex;align-items:center;justify-content:center;padding:0 6px}
+.fab{
+  width:52px;height:52px;border-radius:50%;
+  background:linear-gradient(135deg,var(--primary) 0%,#F4A574 100%);
+  border:none;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;
+  box-shadow:0 4px 20px rgba(232,132,90,.55),0 2px 6px rgba(0,0,0,.14);
+  transition:transform .12s,box-shadow .12s;
+  flex-shrink:0;
+}
+.fab:active{transform:scale(.91);box-shadow:0 2px 8px rgba(232,132,90,.3)}
+.fab svg{width:26px;height:26px;stroke:#fff;stroke-width:2.5;fill:none}
+.nav-badge{
+  position:absolute;top:4px;right:4px;
+  min-width:16px;height:16px;border-radius:8px;
+  background:var(--secondary);color:#fff;
+  font-size:10px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;
+  border:2px solid var(--pill-bg);
+  padding:0 3px;
+}
+
+/* ── map ── */
+#map-screen{background:#d4e0e8}
+#map{position:absolute;top:0;left:0;right:0;bottom:0}
+/* Critical Leaflet CSS — inlined так что CDN не нужен для базовой работы */
+.leaflet-container{width:100%!important;height:100%!important;background:#e8e4dc;overflow:hidden;position:absolute;top:0;left:0;right:0;bottom:0}
+[data-theme=dark] .leaflet-container{background:#1a1a1a}
+.leaflet-map-pane,.leaflet-tile,.leaflet-tile-container,.leaflet-pane,.leaflet-layer{position:absolute;left:0;top:0}
+.leaflet-tile{visibility:hidden}.leaflet-tile-loaded{visibility:inherit}
+.leaflet-tile-pane,.leaflet-overlay-pane,.leaflet-shadow-pane,.leaflet-marker-pane,.leaflet-tooltip-pane,.leaflet-popup-pane{position:absolute;left:0;top:0}
+.leaflet-map-pane{width:0;height:0}
+.leaflet-zoom-anim .leaflet-tile{will-change:transform}
+.leaflet-pan-anim .leaflet-tile{transition:none}
+.map-top{position:absolute;top:0;left:0;right:0;z-index:500;padding:calc(var(--safe-t) + 10px) 0 0}
+.filter-bar{
+  display:flex;gap:6px;overflow-x:auto;
+  padding:0 14px 10px;
+  scrollbar-width:none;
+}
+.filter-bar::-webkit-scrollbar{display:none}
+.chip{
+  flex-shrink:0;padding:7px 13px;border-radius:20px;
+  font-size:13px;font-weight:600;cursor:pointer;border:none;
+  background:var(--pill-bg);
+  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  color:var(--text2);white-space:nowrap;
+  box-shadow:0 2px 8px rgba(0,0,0,.12);
+  border:1px solid var(--pill-border);
+  transition:all .15s;
+}
+.chip.active{background:var(--primary);color:#fff;border-color:transparent;box-shadow:0 2px 12px rgba(232,132,90,.35)}
+.leaflet-control-zoom{border:none!important;border-radius:12px!important;overflow:hidden;box-shadow:var(--shadow)!important}
+.leaflet-control-zoom a{width:36px!important;height:36px!important;line-height:36px!important;font-size:18px!important;color:var(--text)!important;background:var(--card)!important;border:none!important}
+/* ── Zenly-style avatar pins ── */
+.z-pin{display:flex;flex-direction:column;align-items:center;cursor:pointer;will-change:transform;filter:drop-shadow(0 4px 12px rgba(0,0,0,.3))}
+/* Base avatar circle — bg adapts to theme */
+.z-av{
+  border-radius:50%;
+  background:var(--card);
+  display:flex;align-items:center;justify-content:center;
+  overflow:hidden;flex-shrink:0;
+  transition:transform .15s;
+}
+[data-theme=dark] .z-av{background:var(--card2)}
+.z-av.mine{
+  background:linear-gradient(135deg,#E8845A 0%,#F4A574 100%);
+}
+/* Letter inside avatar */
+.z-av-letter{
+  font-weight:800;line-height:1;
+  color:var(--text);
+  transition:color .15s;
+}
+[data-theme=dark] .z-av-letter{color:var(--text)}
+.z-av.mine .z-av-letter{color:#fff}
+/* Pin tail */
+.z-ptail{
+  width:0;height:0;
+  border-left:5px solid transparent;
+  border-right:5px solid transparent;
+  margin-top:-2px;flex-shrink:0;
+}
+/* Cluster */
+.z-cl{position:relative;cursor:pointer}
+.z-cl-c{position:absolute;border-radius:50%;background:var(--card);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+[data-theme=dark] .z-cl-c{background:var(--card2)}
+.z-cl-n{position:absolute;bottom:-5px;right:-8px;background:var(--primary);color:#fff;border-radius:10px;font-size:10px;font-weight:800;padding:2px 6px;border:2px solid var(--card);white-space:nowrap;line-height:1.4;box-shadow:0 1px 4px rgba(0,0,0,.2)}
+/* override markercluster default styles */
+.marker-cluster-small,.marker-cluster-medium,.marker-cluster-large{background:none!important}
+.marker-cluster-small div,.marker-cluster-medium div,.marker-cluster-large div{display:none!important}
+
+/* ── matches ── */
+#list-screen{background:var(--bg)}
+.matches-header{padding:14px 16px 8px;background:var(--card);border-bottom:0.5px solid var(--border);transition:background .2s}
+.matches-header h2{font-size:18px;font-weight:700}
+.matches-header p{font-size:12px;color:var(--text2);margin-top:2px}
+.matches-scroll{flex:1;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:10px}
+/* active-pin banner in matches */
+.my-pin-banner{background:var(--primary-light);border-bottom:1px solid rgba(232,132,90,.2);padding:11px 16px;display:flex;align-items:center;gap:10px;cursor:pointer}
+.mpb-text{flex:1}
+.mpb-title{font-size:13px;font-weight:700;color:var(--primary)}
+.mpb-sub{font-size:12px;color:var(--text2);margin-top:1px}
+/* match card */
+.match-card{background:var(--card);border-radius:var(--radius-lg);padding:16px;border:0.5px solid var(--border);position:relative;overflow:hidden}
+.match-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--primary),var(--secondary))}
+.match-card-top{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.match-avatar{width:48px;height:48px;border-radius:50%;background:var(--primary-light);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:var(--primary);flex-shrink:0;overflow:hidden;border:2px solid var(--border)}
+.match-avatar img{width:100%;height:100%;object-fit:cover}
+.match-info{flex:1;min-width:0}
+.match-name{font-size:16px;font-weight:700}
+.match-meta{font-size:12px;color:var(--text2);margin-top:1px}
+.match-via{display:flex;align-items:center;gap:6px;background:var(--bg);border-radius:10px;padding:8px 10px;font-size:13px;color:var(--text2);margin-bottom:11px}
+.match-via-emoji{font-size:18px}
+.match-via-text{flex:1}
+.match-via-label{font-weight:600;color:var(--text)}
+.match-tg-btn{width:100%;padding:13px;border-radius:var(--radius);border:none;background:linear-gradient(135deg,var(--primary),#F4A574);color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px;transition:opacity .15s}
+.match-tg-btn:active{opacity:.85}
+.match-new-badge{position:absolute;top:14px;right:14px;background:var(--primary);color:#fff;font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px}
+/* match badge on nav */
+.match-badge{position:absolute;top:4px;right:4px;min-width:16px;height:16px;border-radius:8px;background:var(--secondary);color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid var(--pill-bg);padding:0 3px}
+.empty-state{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:32px;text-align:center}
+.empty-state .es-icon{font-size:48px}
+.empty-state h3{font-size:16px;font-weight:700;color:var(--text)}
+.empty-state p{font-size:13px;line-height:1.5;color:var(--text2)}
+
+/* ── requests ── */
+#requests-screen{background:var(--bg)}
+.req-tabs{display:flex;background:var(--card);border-bottom:0.5px solid var(--border);transition:background .2s}
+.req-tab{flex:1;padding:13px 8px;text-align:center;font-size:14px;font-weight:600;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent;transition:all .15s}
+.req-tab.active{color:var(--primary);border-bottom-color:var(--primary)}
+.req-scroll{flex:1;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:9px}
+.req-card{background:var(--card);border-radius:var(--radius);padding:14px 15px;border:0.5px solid var(--border)}
+.req-card-top{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.req-avatar{width:40px;height:40px;border-radius:50%;background:var(--primary-light);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:var(--primary);flex-shrink:0;overflow:hidden}
+.req-avatar img{width:100%;height:100%;object-fit:cover}
+.req-name{font-size:15px;font-weight:700}
+.req-meta{font-size:12px;color:var(--text2)}
+.req-activity{background:var(--bg);border-radius:10px;padding:9px 11px;font-size:13px;color:var(--text2);margin-bottom:10px;line-height:1.4}
+.req-activity b{color:var(--text);font-weight:600}
+.req-actions{display:flex;gap:8px}
+.req-btn{flex:1;padding:10px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .12s}
+.req-btn:active{transform:scale(.96)}
+.req-btn.accept{background:var(--primary);color:#fff}
+.req-btn.decline{background:var(--bg);color:var(--text2);border:1px solid var(--border)}
+.req-status{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:5px 10px;border-radius:8px;margin-top:4px}
+.req-status.sent{background:var(--secondary-light);color:var(--secondary)}
+.req-status.accepted{background:rgba(39,174,96,.12);color:var(--success)}
+.req-status.declined{background:rgba(226,75,74,.1);color:var(--danger)}
+
+/* ── profile ── */
+#profile-screen{background:var(--bg);overflow-y:auto}
+.profile-hero{background:var(--card);padding:calc(16px + var(--safe-t)) 20px 20px;display:flex;flex-direction:column;align-items:center;gap:6px;border-bottom:0.5px solid var(--border);position:relative;transition:background .2s}
+.settings-gear{position:absolute;top:16px;right:16px;width:36px;height:36px;border-radius:50%;background:var(--bg);border:0.5px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;transition:background .15s}
+.settings-gear:active{background:var(--border)}
+/* photo avatar */
+.avatar-wrap{position:relative;cursor:pointer;margin-bottom:4px}
+.avatar{width:76px;height:76px;border-radius:50%;background:var(--primary-light);display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:700;color:var(--primary);overflow:hidden;border:2px solid var(--border)}
+.avatar img{width:100%;height:100%;object-fit:cover}
+.avatar-edit{position:absolute;bottom:0;right:0;width:24px;height:24px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:13px;border:2px solid var(--card)}
+.profile-name{font-size:19px;font-weight:800}
+.profile-sub{font-size:13px;color:var(--text2)}
+.profile-city{display:inline-flex;align-items:center;gap:4px;font-size:13px;font-weight:600;background:var(--primary-light);color:var(--primary);padding:5px 12px;border-radius:20px}
+.geo-badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;background:var(--secondary-light);color:var(--secondary);padding:4px 10px;border-radius:20px;font-weight:600}
+.section-label{padding:18px 16px 5px;font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.05em;text-transform:uppercase}
+.setting-row{background:var(--card);margin:0 0 0.5px;padding:14px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;font-size:15px;transition:background .15s}
+.setting-row:active{background:var(--bg)}
+.setting-row:first-of-type{border-radius:var(--radius) var(--radius) 0 0}
+.setting-row:last-of-type{border-radius:0 0 var(--radius) var(--radius);margin-bottom:0}
+.setting-row:only-of-type{border-radius:var(--radius)}
+.setting-icon{font-size:20px;width:30px;text-align:center}
+.setting-label{flex:1;color:var(--text)}
+.setting-value{font-size:13px;color:var(--text2)}
+.setting-arrow{color:var(--text3);font-size:16px}
+.profile-wrap{padding:0 12px 40px}
+.danger-text{color:var(--danger)!important}
+
+/* ── privacy ── */
+.privacy-body{padding:20px;font-size:14px;line-height:1.65;color:var(--text2)}
+.privacy-body h3{font-size:14px;font-weight:700;color:var(--text);margin:16px 0 5px}
+.privacy-body h3:first-child{margin-top:0}
+.privacy-body p{margin-bottom:8px}
+.privacy-body ul{padding-left:16px;margin-bottom:8px}
+.privacy-body ul li{margin-bottom:3px}
+.privacy-block{background:var(--bg);border-radius:10px;padding:11px 13px;margin-bottom:10px;border-left:3px solid var(--secondary)}
+.privacy-block.warn{border-left-color:var(--primary)}
+.privacy-date{font-size:12px;color:var(--text3);margin-bottom:14px}
+
+/* ── settings sheet ── */
+.settings-body{padding:8px 16px 32px}
+.toggle-row{display:flex;align-items:center;background:var(--card);border-radius:var(--radius);padding:14px 16px;margin-bottom:8px;gap:12px;border:0.5px solid var(--border)}
+.toggle-row:last-child{margin-bottom:0}
+.toggle-icon{font-size:20px;width:28px;text-align:center}
+.toggle-label{flex:1;font-size:15px;color:var(--text)}
+.toggle{position:relative;width:44px;height:26px;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0;position:absolute}
+.toggle-track{position:absolute;inset:0;border-radius:13px;background:var(--border2);transition:.25s;cursor:pointer}
+.toggle input:checked+.toggle-track{background:var(--primary)}
+.toggle-thumb{position:absolute;width:20px;height:20px;border-radius:50%;background:#fff;top:3px;left:3px;transition:.25s;box-shadow:0 1px 4px rgba(0,0,0,.2);pointer-events:none}
+.toggle input:checked~.toggle-thumb{left:21px}
+.lang-selector{display:flex;gap:6px}
+.lang-btn{flex:1;padding:10px;border-radius:10px;border:1.5px solid var(--border);background:var(--card);color:var(--text2);font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s}
+.lang-btn.active{border-color:var(--primary);background:var(--primary-light);color:var(--primary)}
+.settings-divider{padding:14px 0 5px;font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.05em;text-transform:uppercase}
+
+/* ── sheet ── */
+.sheet-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:900;opacity:0;pointer-events:none;transition:opacity .25s}
+.sheet-backdrop.open{opacity:1;pointer-events:all}
+.sheet{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-radius:20px 20px 0 0;z-index:901;transform:translateY(100%);transition:transform .3s cubic-bezier(.32,.72,0,1);max-height:92vh;display:flex;flex-direction:column;transition:transform .3s cubic-bezier(.32,.72,0,1),background .2s}
+.sheet.open{transform:translateY(0)}
+.sheet-handle{width:36px;height:4px;background:var(--border2);border-radius:2px;margin:10px auto 0}
+.sheet-head{padding:14px 18px 11px;border-bottom:0.5px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.sheet-title{font-size:17px;font-weight:700}
+.sheet-close{width:30px;height:30px;border-radius:50%;background:var(--bg);border:none;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text2)}
+.sheet-body{flex:1;overflow-y:auto;padding:16px 18px 32px}
+
+/* create */
+.step{display:none}.step.active{display:block}
+.step-title{font-size:15px;font-weight:600;margin-bottom:13px;color:var(--text)}
+.cat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.cat-item{border:1.5px solid var(--border);border-radius:var(--radius);padding:13px 6px;display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;transition:all .15s;background:var(--card)}
+.cat-item:active{transform:scale(.94)}
+.cat-item.selected{border-color:var(--primary);background:var(--primary-light)}
+.ci-emoji{font-size:24px}
+.ci-label{font-size:11px;font-weight:600;color:var(--text2);text-align:center;line-height:1.2}
+.cat-item.selected .ci-label{color:var(--primary)}
+.textarea-wrap{position:relative}
+textarea{width:100%;min-height:96px;border:1.5px solid var(--border);border-radius:var(--radius);padding:11px 13px;font-size:15px;font-family:inherit;resize:none;outline:none;color:var(--text);background:var(--bg);transition:border-color .15s}
+textarea:focus{border-color:var(--primary)}
+.char-count{position:absolute;bottom:9px;right:11px;font-size:12px;color:var(--text3)}
+.time-list{display:flex;flex-direction:column;gap:7px}
+.time-item{padding:13px 15px;border:1.5px solid var(--border);border-radius:var(--radius);font-size:15px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:9px;background:var(--card);color:var(--text)}
+.time-item:active{transform:scale(.98)}
+.time-item.selected{border-color:var(--primary);background:var(--primary-light);color:var(--primary);font-weight:600}
+.time-custom-wrap{display:none;gap:8px;margin-top:9px;align-items:center}
+.time-custom-wrap.show{display:flex}
+.time-custom-wrap input{flex:1;border:1.5px solid var(--border);border-radius:11px;padding:11px 13px;font-size:15px;font-family:inherit;outline:none;color:var(--text);background:var(--bg)}
+.time-custom-wrap input:focus{border-color:var(--primary)}
+
+/* detail */
+.detail-cat-badge{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:20px;font-size:13px;font-weight:700;margin-bottom:11px}
+.detail-name-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.detail-avatar{width:44px;height:44px;border-radius:50%;background:var(--primary-light);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:var(--primary);overflow:hidden;flex-shrink:0}
+.detail-avatar img{width:100%;height:100%;object-fit:cover}
+.detail-name{font-size:17px;font-weight:700}
+.detail-age{font-size:13px;color:var(--text2)}
+.detail-meta{display:flex;gap:7px;margin-bottom:13px;flex-wrap:wrap}
+.detail-tag{display:inline-flex;align-items:center;gap:3px;padding:4px 10px;border-radius:16px;font-size:12px;font-weight:600;background:var(--bg);color:var(--text2)}
+.detail-desc{font-size:14px;line-height:1.55;color:var(--text);background:var(--bg);border-radius:12px;padding:12px 14px;margin-bottom:15px}
+.interest-btn{width:100%;padding:15px;border-radius:var(--radius);background:var(--primary);border:none;color:#fff;font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:all .15s;font-family:inherit}
+.interest-btn:active{transform:scale(.97)}
+.interest-btn.sent{background:var(--secondary)}
+.report-link{text-align:center;margin-top:10px;font-size:13px;color:var(--text3);cursor:pointer;padding:8px}
+
+/* photo sheet */
+.photo-option{display:flex;align-items:center;gap:14px;padding:16px 4px;cursor:pointer;border-radius:12px;transition:background .1s}
+.photo-option:active{background:var(--bg)}
+.photo-option-icon{font-size:28px;width:44px;text-align:center}
+.photo-option-text{flex:1}
+.photo-option-title{font-size:16px;font-weight:600;color:var(--text)}
+.photo-option-sub{font-size:13px;color:var(--text2);margin-top:2px}
+.photo-option+.photo-option{border-top:0.5px solid var(--border)}
+
+/* toast */
+.toast{position:fixed;bottom:calc(var(--nav-h) + var(--safe-b) + 14px);left:50%;transform:translateX(-50%) translateY(12px);background:var(--text);color:var(--bg);padding:11px 20px;border-radius:14px;font-size:14px;font-weight:500;z-index:1100;opacity:0;transition:all .22s;white-space:nowrap;pointer-events:none;max-width:90vw;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,.25)}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* pin success popup */
+.pin-success-overlay{position:fixed;inset:0;z-index:2000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.4);opacity:0;pointer-events:none;transition:opacity .22s}
+.pin-success-overlay.show{opacity:1;pointer-events:auto}
+.pin-success-box{
+  background:linear-gradient(145deg,var(--primary) 0%,#F4A574 100%);
+  border-radius:28px;padding:32px 36px;
+  display:flex;flex-direction:column;align-items:center;gap:8px;
+  box-shadow:0 24px 64px rgba(232,132,90,.55),0 4px 16px rgba(0,0,0,.2);
+  transform:scale(.75);
+  transition:transform .3s cubic-bezier(.34,1.56,.64,1);
+  min-width:220px;
+}
+.pin-success-overlay.show .pin-success-box{transform:scale(1)}
+.pin-success-icon{font-size:72px;animation:successPop .4s cubic-bezier(.34,1.56,.64,1) .05s both;line-height:1}
+@keyframes successPop{from{transform:scale(0) rotate(-20deg)}to{transform:scale(1) rotate(0)}}
+.pin-success-title{font-size:20px;font-weight:800;color:#fff;text-align:center;margin-top:4px}
+.pin-success-sub{font-size:13px;color:rgba(255,255,255,.8);text-align:center;line-height:1.4}
+
+/* other-label input */
+.other-label-wrap{background:var(--bg);border-radius:12px;padding:10px 12px;margin-bottom:4px}
+.other-label-hint{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px}
+.other-label-input{width:100%;border:1.5px solid var(--border);border-radius:10px;padding:10px 13px;font-size:15px;font-family:inherit;outline:none;color:var(--text);background:var(--card);transition:border-color .15s}
+.other-label-input:focus{border-color:var(--primary)}
+
+/* ── map overlay buttons — positioned above pill nav ── */
+/* nav pill: height 68px + bottom 14px = 82px from bottom + safe-b */
+.map-layer-btn{
+  position:absolute;
+  bottom:calc(var(--nav-h) + var(--safe-b) + 14px);
+  right:14px;left:auto;
+  z-index:600;width:44px;height:44px;border-radius:14px;
+  background:var(--pill-bg);
+  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  border:1px solid var(--pill-border);
+  box-shadow:0 4px 16px rgba(0,0,0,.18);
+  display:flex;align-items:center;justify-content:center;cursor:pointer;
+  transition:opacity .15s;
+}
+.map-layer-btn:active{opacity:.7}
+.map-layer-btn svg{width:20px;height:20px;stroke:var(--text2);stroke-width:1.8;fill:none}
+/* ── my location button ── */
+.map-locate-btn{
+  position:absolute;
+  bottom:calc(var(--nav-h) + var(--safe-b) + 66px);
+  right:14px;left:auto;
+  z-index:600;width:44px;height:44px;border-radius:14px;
+  background:var(--pill-bg);
+  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  border:1px solid var(--pill-border);
+  box-shadow:0 4px 16px rgba(0,0,0,.18);
+  display:flex;align-items:center;justify-content:center;cursor:pointer;
+  transition:opacity .15s,border-color .2s;
+}
+.map-locate-btn:active{opacity:.7}
+.map-locate-btn svg{width:20px;height:20px;fill:none;stroke:var(--text2);stroke-width:1.8;transition:stroke .2s}
+.map-locate-btn.locating svg{stroke:var(--primary);animation:pulse-loc .9s infinite alternate}
+.map-locate-btn.located svg{stroke:var(--secondary)}
+@keyframes pulse-loc{from{opacity:.5}to{opacity:1}}
+.map-style-popup{
+  position:absolute;
+  bottom:calc(var(--nav-h) + var(--safe-b) + 118px);
+  right:14px;left:auto;
+  z-index:610;
+  background:var(--card);
+  border-radius:16px;
+  box-shadow:0 8px 32px rgba(0,0,0,.22),0 2px 8px rgba(0,0,0,.1);
+  border:0.5px solid var(--border);
+  overflow:hidden;display:none;min-width:175px;
+}
+.map-style-popup.open{display:block}
+.msp-row{display:flex;align-items:center;gap:10px;padding:11px 14px;cursor:pointer;font-size:14px;font-weight:600;color:var(--text2);transition:background .12s}
+.msp-row:not(:last-child){border-bottom:0.5px solid var(--border)}
+.msp-row.active{color:var(--primary);background:var(--primary-light)}
+.msp-row:active{background:var(--card2)}
+.msp-icon{font-size:17px;width:22px;text-align:center}
+
+/* ── location picker overlay ── */
+/* overlay всегда pointer-events:none — чтобы тачи к карте проходили насквозь */
+.loc-picker-overlay{position:absolute;inset:0;z-index:700;display:none;flex-direction:column;pointer-events:none}
+.loc-picker-overlay.active{display:flex}
+/* только панели сверху/снизу получают тачи — карта под ними остаётся draggable */
+.loc-top-bar{pointer-events:auto;background:var(--card);padding:12px 16px;text-align:center;font-size:13px;font-weight:600;color:var(--text2);border-bottom:0.5px solid var(--border);box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.loc-map-area{flex:1;position:relative;pointer-events:none}
+.loc-crosshair{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none}
+.lc-vert{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:2px;height:44px;background:var(--primary);border-radius:1px;box-shadow:0 0 6px rgba(232,132,90,.5)}
+.lc-horiz{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:44px;height:2px;background:var(--primary);border-radius:1px;box-shadow:0 0 6px rgba(232,132,90,.5)}
+.lc-dot{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:12px;height:12px;border-radius:50%;background:var(--primary);border:2.5px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+.lc-pin{position:absolute;left:50%;bottom:50%;transform:translateX(-50%);font-size:32px;line-height:1;filter:drop-shadow(0 2px 4px rgba(0,0,0,.3))}
+.loc-bottom-bar{pointer-events:auto;background:var(--card);padding:12px 16px 24px;display:flex;align-items:center;gap:10px;border-top:0.5px solid var(--border);box-shadow:0 -2px 12px rgba(0,0,0,.08)}
+.loc-cancel-btn{flex:0 0 auto;padding:11px 18px;border-radius:12px;border:1.5px solid var(--border);background:var(--card);color:var(--text2);font-size:14px;font-weight:600;cursor:pointer;font-family:inherit}
+.loc-confirm-btn{flex:1;padding:13px;border-radius:12px;border:none;background:var(--primary);color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:0 4px 14px rgba(232,132,90,.4)}
+.loc-confirm-btn:active{opacity:.9}
+
+/* ── location row in step-time ── */
+.loc-source-row{display:flex;align-items:center;gap:10px;padding:11px 14px;background:var(--card2);border-radius:12px;margin-top:12px;cursor:pointer;border:1.5px solid var(--border);transition:border-color .15s}
+.loc-source-row:active{border-color:var(--primary)}
+.loc-source-icon{font-size:20px}
+.loc-source-text{flex:1}
+.loc-source-title{font-size:13px;font-weight:700;color:var(--text)}
+.loc-source-sub{font-size:11px;color:var(--text3);margin-top:1px}
+.loc-source-arrow{font-size:16px;color:var(--text3)}
+</style>
+</head>
+<body>
+
+<!-- ══ WELCOME ══════════════════════════════════════════════════ -->
+<div class="overlay" id="geo-screen">
+  <div class="welcome-body">
+    <div class="welcome-title">ActivityMap</div>
+    <div class="welcome-sub">Найди русскоязычных людей рядом для совместных активностей в Бельгии</div>
+    <div class="welcome-features">
+      <div class="welcome-feat">
+        <div class="welcome-feat-icon">📍</div>
+        <div class="welcome-feat-text"><b>Ставь метку</b> — расскажи чем хочешь заняться сегодня</div>
+      </div>
+      <div class="welcome-feat">
+        <div class="welcome-feat-icon">👀</div>
+        <div class="welcome-feat-text"><b>Смотри карту</b> — кто рядом и чем занимается прямо сейчас</div>
+      </div>
+      <div class="welcome-feat">
+        <div class="welcome-feat-icon">🤝</div>
+        <div class="welcome-feat-text"><b>Находи компанию</b> — кофе, прогулка, бар, спорт и не только</div>
+      </div>
+    </div>
+    <button class="welcome-start-btn" onclick="startApp()">Начать →</button>
+    <div class="welcome-hint">Брюссель · Антверпен · Гент · Брюгге</div>
+  </div>
+</div>
+
+<!-- ══ REGISTRATION ════════════════════════════════════════════ -->
+<div class="overlay hidden" id="reg-screen">
+  <div class="reg-body">
+    <div class="reg-logo">🗺️</div>
+    <div class="reg-title">Добро пожаловать!</div>
+    <div class="reg-sub">ActivityMap работает в 4 городах Бельгии — найди компанию рядом прямо сегодня.</div>
+
+    <div class="field-label" id="reg-lbl-name">Имя</div>
+    <input class="field-input" id="reg-name" placeholder="Как тебя зовут?" maxlength="30" autocomplete="off">
+
+    <div class="field-label" id="reg-lbl-age">Возраст</div>
+    <input class="field-input" id="reg-age" placeholder="от 18 до 80" type="number" min="18" max="80" inputmode="numeric">
+
+    <div class="field-label" id="reg-lbl-city">Город</div>
+    <div id="geo-loading-reg" class="geo-loading" style="display:none">
+      <div class="spinner"></div> <span id="geo-loading-text">Определяем твой город...</span>
+    </div>
+    <div id="city-auto-wrap" style="display:none">
+      <div class="city-auto">
+        <span>📍</span>
+        <span id="city-auto-name" style="font-weight:700"></span>
+        <span class="city-auto-change" id="city-auto-change" onclick="showCityPicker()">Изменить</span>
+      </div>
+    </div>
+    <div id="city-picker-wrap">
+      <div class="city-grid">
+        <div class="city-card" data-city='Брюссель' onclick="selectCity('Брюссель',this)">
+          <div class="cc-flag">🏛️</div>
+          <div class="cc-name">Брюссель</div>
+          <div class="cc-sub">Brussels</div>
+        </div>
+        <div class="city-card" data-city='Антверпен' onclick="selectCity('Антверпен',this)">
+          <div class="cc-flag">⚓</div>
+          <div class="cc-name">Антверпен</div>
+          <div class="cc-sub">Antwerpen</div>
+        </div>
+        <div class="city-card" data-city='Брюгге' onclick="selectCity('Брюгге',this)">
+          <div class="cc-flag">🏰</div>
+          <div class="cc-name">Брюгге</div>
+          <div class="cc-sub">Brugge</div>
+        </div>
+        <div class="city-card" data-city='Гент' onclick="selectCity('Гент',this)">
+          <div class="cc-flag">🎨</div>
+          <div class="cc-name">Гент</div>
+          <div class="cc-sub">Ghent</div>
+        </div>
+      </div>
+    </div>
+
+    <button class="primary-btn" id="reg-btn" onclick="submitReg()" style="margin-top:8px">Начать →</button>
+  </div>
+</div>
+
+<!-- ══ MAIN APP ════════════════════════════════════════════════ -->
+
+<!-- Map -->
+<div class="screen active" id="map-screen">
+  <div id="map"></div>
+
+  <!-- Filter chips -->
+  <div class="map-top">
+    <div class="filter-bar">
+      <div class="chip active" id="chip-all" onclick="filterMap('all',this)">🗺 Все</div>
+      <div class="chip" id="chip-coffee" onclick="filterMap('coffee',this)">☕ <span id="chip-lbl-coffee">Кофе</span></div>
+      <div class="chip" id="chip-walk" onclick="filterMap('walk',this)">🚶 <span id="chip-lbl-walk">Прогулка</span></div>
+      <div class="chip" id="chip-bar" onclick="filterMap('bar',this)">🍺 <span id="chip-lbl-bar">Бар</span></div>
+      <div class="chip" id="chip-sport" onclick="filterMap('sport',this)">⚽ <span id="chip-lbl-sport">Спорт</span></div>
+      <div class="chip" id="chip-language" onclick="filterMap('language',this)">💬 <span id="chip-lbl-language">Языки</span></div>
+      <div class="chip" id="chip-culture" onclick="filterMap('culture',this)">🎭 <span id="chip-lbl-culture">Культура</span></div>
+      <div class="chip" id="chip-food" onclick="filterMap('food',this)">🍜 <span id="chip-lbl-food">Еда</span></div>
+      <div class="chip" id="chip-work" onclick="filterMap('work',this)">💻 <span id="chip-lbl-work">Коворк</span></div>
+      <div class="chip" id="chip-other" onclick="filterMap('other',this)">✨ <span id="chip-lbl-other">Другое</span></div>
+    </div>
+  </div>
+
+  <!-- Map style picker -->
+  <div class="map-style-popup" id="map-style-popup">
+    <div class="msp-row active" id="msp-0" onclick="setMapStyle(0)"><span class="msp-icon">🎨</span><span id="msp-lbl-0">Живая</span></div>
+    <div class="msp-row" id="msp-1" onclick="setMapStyle(1)"><span class="msp-icon">◻️</span><span id="msp-lbl-1">Чистая</span></div>
+    <div class="msp-row" id="msp-2" onclick="setMapStyle(2)"><span class="msp-icon">🗺</span><span id="msp-lbl-2">Классика</span></div>
+  </div>
+  <button class="map-layer-btn" onclick="toggleMapStylePicker()" title="Стиль карты">
+    <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+  </button>
+  <button class="map-locate-btn" id="map-locate-btn" onclick="goToMyLocation()" title="Моё местоположение">
+    <svg viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
+      <circle cx="12" cy="12" r="7" stroke-dasharray="none"/>
+    </svg>
+  </button>
+
+  <!-- Location picker overlay (activated during pin creation) -->
+  <div class="loc-picker-overlay" id="loc-picker-overlay">
+    <div class="loc-top-bar" id="loc-top-hint">Перетащи карту · место встречи</div>
+    <div class="loc-map-area">
+      <div class="loc-crosshair">
+        <div class="lc-vert"></div>
+        <div class="lc-horiz"></div>
+        <div class="lc-dot"></div>
+        <div class="lc-pin" id="loc-pin-emoji">📍</div>
+      </div>
+    </div>
+    <div class="loc-bottom-bar">
+      <button class="loc-cancel-btn" onclick="cancelLocationPicker()">← Назад</button>
+      <button class="loc-confirm-btn" onclick="confirmLocation()">📍 Подтвердить место</button>
+    </div>
+  </div>
+</div>
+
+<!-- Matches (бывший Список) -->
+<div class="screen" id="list-screen">
+  <div class="matches-header">
+    <h2 id="matches-title">🤝 Мэтчи</h2>
+    <p id="matches-subtitle"></p>
+  </div>
+  <!-- Моя активная метка -->
+  <div id="my-pin-banner" class="my-pin-banner" style="display:none" onclick="openMyPinDetail()">
+    <div style="font-size:22px" id="mpb-emoji">☕</div>
+    <div class="mpb-text">
+      <div class="mpb-title" id="mpb-title">Моя метка активна</div>
+      <div class="mpb-sub" id="mpb-sub"></div>
+    </div>
+    <div style="font-size:18px;padding:4px 8px;color:var(--text2)" onclick="event.stopPropagation();deleteMyPin()">🗑</div>
+  </div>
+  <div class="matches-scroll" id="matches-scroll"></div>
+</div>
+
+<!-- Requests -->
+<div class="screen" id="requests-screen">
+  <div class="req-tabs">
+    <div class="req-tab active" id="tab-in" onclick="switchReqTab('in')">📥 Входящие</div>
+    <div class="req-tab" id="tab-out" onclick="switchReqTab('out')">📤 Исходящие</div>
+  </div>
+  <div class="req-scroll" id="req-scroll"></div>
+</div>
+
+<!-- Profile -->
+<div class="screen" id="profile-screen">
+  <div class="profile-hero">
+    <div class="settings-gear" onclick="openSettings()">⚙️</div>
+    <div class="avatar-wrap" onclick="openPhotoSheet()">
+      <div class="avatar" id="prof-avatar-img">👤</div>
+      <div class="avatar-edit">📷</div>
+    </div>
+    <div class="profile-name" id="prof-name">—</div>
+    <div class="profile-sub" id="prof-age">— лет</div>
+    <div class="profile-city" id="prof-city">📍 —</div>
+    <div class="geo-badge">🛡 Адрес скрыт · ±30м</div>
+  </div>
+  <div class="profile-wrap">
+    <div class="section-label" id="prof-sec-profile">Профиль</div>
+    <div class="setting-row" style="border-radius:14px 14px 0 0" onclick="changeName()">
+      <div class="setting-icon">✏️</div>
+      <div class="setting-label" id="prof-lbl-name">Изменить имя</div>
+      <div class="setting-arrow">›</div>
+    </div>
+    <div class="setting-row" onclick="changeCityProfile()">
+      <div class="setting-icon">📍</div>
+      <div class="setting-label" id="prof-lbl-city">Сменить город</div>
+      <div class="setting-value" id="prof-city-val"></div>
+      <div class="setting-arrow">›</div>
+    </div>
+    <div class="setting-row" style="border-radius:0 0 14px 14px" onclick="changeAge()">
+      <div class="setting-icon">🎂</div>
+      <div class="setting-label" id="prof-lbl-age">Изменить возраст</div>
+      <div class="setting-arrow">›</div>
+    </div>
+
+    <div class="section-label" id="prof-sec-about">О приложении</div>
+    <div class="setting-row" style="border-radius:14px 14px 0 0" onclick="showToast('ActivityMap v1.0 — Бельгия 🇧🇪')">
+      <div class="setting-icon">ℹ️</div>
+      <div class="setting-label" id="prof-lbl-about">ActivityMap v1.0</div>
+    </div>
+    <div class="setting-row" style="border-radius:0 0 14px 14px" onclick="openPrivacy()">
+      <div class="setting-icon">🔒</div>
+      <div class="setting-label" id="prof-lbl-privacy">Политика конфиденциальности</div>
+      <div class="setting-arrow">›</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Floating pill nav -->
+<div id="nav" style="display:none">
+  <button class="nav-btn active" id="nav-map" onclick="switchScreen('map')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 7l6-3 6 3 6-3v13l-6 3-6-3-6 3V7z"/><path d="M9 4v13M15 7v13"/></svg>
+    <span class="nav-label">Карта</span>
+  </button>
+  <button class="nav-btn" id="nav-list" onclick="switchScreen('list')" style="position:relative">
+    <div id="match-badge" class="match-badge" style="display:none">0</div>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+    <span class="nav-label" id="nav-list-label">Мэтчи</span>
+  </button>
+  <div class="nav-center">
+    <button class="fab" onclick="openCreate()" title="Создать метку">
+      <svg viewBox="0 0 24 24" fill="none"><line x1="12" y1="5" x2="12" y2="19" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/><line x1="5" y1="12" x2="19" y2="12" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+  <button class="nav-btn" id="nav-requests" onclick="switchScreen('requests')" style="position:relative">
+    <div id="req-badge" class="nav-badge" style="display:none">0</div>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+    <span class="nav-label">Заявки</span>
+  </button>
+  <button class="nav-btn" id="nav-profile" onclick="switchScreen('profile')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+    <span class="nav-label">Профиль</span>
+  </button>
+</div>
+
+<!-- Create sheet -->
+<div class="sheet-backdrop" id="create-backdrop" onclick="closeCreate()"></div>
+<div class="sheet" id="create-sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-head">
+    <div class="sheet-title" id="create-title">Создать метку</div>
+    <button class="sheet-close" onclick="closeCreate()">✕</button>
+  </div>
+  <div class="sheet-body">
+    <div class="step active" id="step-cat">
+      <div class="step-title" id="cat-q-title">Что планируешь?</div>
+      <div class="cat-grid">
+        <div class="cat-item" onclick="selectCat('coffee','☕',this)"><div class="ci-emoji">☕</div><div class="ci-label" id="cat-coffee">Кофе / Чай</div></div>
+        <div class="cat-item" onclick="selectCat('walk','🚶',this)"><div class="ci-emoji">🚶</div><div class="ci-label" id="cat-walk">Прогулка</div></div>
+        <div class="cat-item" onclick="selectCat('bar','🍺',this)"><div class="ci-emoji">🍺</div><div class="ci-label" id="cat-bar">Бар / Вечер</div></div>
+        <div class="cat-item" onclick="selectCat('sport','⚽',this)"><div class="ci-emoji">⚽</div><div class="ci-label" id="cat-sport">Спорт</div></div>
+        <div class="cat-item" onclick="selectCat('language','💬',this)"><div class="ci-emoji">💬</div><div class="ci-label" id="cat-language">Языки</div></div>
+        <div class="cat-item" onclick="selectCat('culture','🎭',this)"><div class="ci-emoji">🎭</div><div class="ci-label" id="cat-culture">Культура</div></div>
+        <div class="cat-item" onclick="selectCat('food','🍜',this)"><div class="ci-emoji">🍜</div><div class="ci-label" id="cat-food">Еда</div></div>
+        <div class="cat-item" onclick="selectCat('work','💻',this)"><div class="ci-emoji">💻</div><div class="ci-label" id="cat-work">Коворкинг</div></div>
+        <div class="cat-item" onclick="selectCat('other','✨',this)"><div class="ci-emoji">✨</div><div class="ci-label" id="cat-other">Другое</div></div>
+      </div>
+    </div>
+    <div class="step" id="step-desc">
+      <div class="step-title" id="step-desc-title">Описание</div>
+      <div class="other-label-wrap" id="other-label-wrap" style="display:none">
+        <div class="other-label-hint" id="other-label-hint">Что конкретно? (1–2 слова)</div>
+        <input class="other-label-input" id="other-label-input" maxlength="25" placeholder="Например: йога, русский язык...">
+      </div>
+      <div class="textarea-wrap">
+        <textarea id="desc-input" placeholder="Например: ищу компанию на кофе, хочу поговорить по-русски 🙂" maxlength="200" oninput="document.getElementById('char-count').textContent=this.value.length+'/200'"></textarea>
+        <div class="char-count" id="char-count">0/200</div>
+      </div>
+      <button class="primary-btn" id="btn-next-time" style="margin-top:11px" onclick="goToTime()">Далее →</button>
+      <div id="btn-skip" style="text-align:center;margin-top:9px;font-size:13px;color:var(--text2);cursor:pointer" onclick="goToTime()">Пропустить</div>
+    </div>
+    <div class="step" id="step-time">
+      <div class="step-title" id="time-q-title">Когда планируешь?</div>
+      <div class="time-list">
+        <div class="time-item" id="ti-now" onclick="selectTime('t_now',this)"><span>⚡</span> <span class="ti-label">Прямо сейчас</span></div>
+        <div class="time-item" id="ti-1h" onclick="selectTime('t_1h',this)"><span>🕐</span> <span class="ti-label">Через час</span></div>
+        <div class="time-item" id="ti-2h" onclick="selectTime('t_2h',this)"><span>🕑</span> <span class="ti-label">Через 2 часа</span></div>
+        <div class="time-item" id="ti-eve" onclick="selectTime('t_eve',this)"><span>🌙</span> <span class="ti-label">Сегодня вечером</span></div>
+        <div class="time-item" id="ti-custom" onclick="showCustomTime(this)"><span>✏️</span> <span class="ti-label">Ввести время...</span></div>
+      </div>
+      <div class="time-custom-wrap" id="custom-time-wrap">
+        <input id="custom-time" placeholder="18:30" maxlength="5" oninput="fmtTime(this)" inputmode="numeric">
+        <button class="primary-btn" style="width:auto;padding:12px 18px;margin:0" onclick="applyCustomTime()">OK</button>
+      </div>
+      <!-- Строка источника локации — показывает GPS/manual статус -->
+      <div class="loc-source-row" onclick="enterLocationPicker()">
+        <div class="loc-source-icon" id="loc-source-icon">📍</div>
+        <div class="loc-source-text">
+          <div class="loc-source-title" id="loc-source-title">Место встречи</div>
+          <div class="loc-source-sub" id="loc-source-sub">Нет GPS · Выбрать место на карте →</div>
+        </div>
+        <div class="loc-source-arrow">›</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Detail sheet -->
+<div class="sheet-backdrop" id="detail-backdrop" onclick="closeDetail()"></div>
+<div class="sheet" id="detail-sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-head">
+    <div class="sheet-title" id="detail-sheet-title">Активность</div>
+    <button class="sheet-close" onclick="closeDetail()">✕</button>
+  </div>
+  <div class="sheet-body" id="detail-body"></div>
+</div>
+
+<!-- City picker sheet -->
+<div class="sheet-backdrop" id="city-backdrop" onclick="closeCitySheet()"></div>
+<div class="sheet" id="city-sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-head">
+    <div class="sheet-title">Выбери город</div>
+    <button class="sheet-close" onclick="closeCitySheet()">✕</button>
+  </div>
+  <div class="sheet-body">
+    <div class="city-grid" id="city-grid-sheet">
+      <div class="city-card" data-city='Брюссель' onclick="changeCityTo('Брюссель')"><div class="cc-flag">🏛️</div><div class="cc-name">Брюссель</div><div class="cc-sub">Brussels</div></div>
+      <div class="city-card" data-city='Антверпен' onclick="changeCityTo('Антверпен')"><div class="cc-flag">⚓</div><div class="cc-name">Антверпен</div><div class="cc-sub">Antwerpen</div></div>
+      <div class="city-card" data-city='Брюгге' onclick="changeCityTo('Брюгге')"><div class="cc-flag">🏰</div><div class="cc-name">Брюгге</div><div class="cc-sub">Brugge</div></div>
+      <div class="city-card" data-city='Гент' onclick="changeCityTo('Гент')"><div class="cc-flag">🎨</div><div class="cc-name">Гент</div><div class="cc-sub">Ghent</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Photo sheet -->
+<div class="sheet-backdrop" id="photo-backdrop" onclick="closePhotoSheet()"></div>
+<div class="sheet" id="photo-sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-head">
+    <div class="sheet-title">Фото профиля</div>
+    <button class="sheet-close" onclick="closePhotoSheet()">✕</button>
+  </div>
+  <div class="sheet-body" style="padding:8px 16px 32px">
+    <div class="photo-option" onclick="triggerCamera()">
+      <div class="photo-option-icon">📷</div>
+      <div class="photo-option-text">
+        <div class="photo-option-title" id="photo-cam-title">Сфотографироваться</div>
+        <div class="photo-option-sub" id="photo-cam-sub">Открыть камеру прямо сейчас</div>
+      </div>
+    </div>
+    <div class="photo-option" onclick="triggerGallery()">
+      <div class="photo-option-icon">🖼️</div>
+      <div class="photo-option-text">
+        <div class="photo-option-title" id="photo-gal-title">Выбрать из галереи</div>
+        <div class="photo-option-sub" id="photo-gal-sub">Выбрать существующее фото</div>
+      </div>
+    </div>
+    <div class="photo-option" id="remove-photo-btn" onclick="removePhoto()" style="display:none">
+      <div class="photo-option-icon">🗑️</div>
+      <div class="photo-option-text">
+        <div class="photo-option-title" id="photo-rem-title" style="color:var(--danger)">Удалить фото</div>
+        <div class="photo-option-sub" id="photo-rem-sub">Вернуться к аватару с буквой</div>
+      </div>
+    </div>
+  </div>
+</div>
+<input type="file" id="camera-input" accept="image/*" capture="user" style="display:none" onchange="handlePhoto(this)">
+<input type="file" id="gallery-input" accept="image/*" style="display:none" onchange="handlePhoto(this)">
+
+<!-- Pin success overlay -->
+<div class="pin-success-overlay" id="pin-success-overlay" onclick="hidePinSuccess()">
+  <div class="pin-success-box">
+    <div class="pin-success-icon" id="pin-success-icon">✅</div>
+    <div class="pin-success-title" id="pin-success-title">Метка опубликована!</div>
+    <div class="pin-success-sub" id="pin-success-sub">Адрес скрыт · ±30м</div>
+  </div>
+</div>
+
+<!-- Settings sheet -->
+<div class="sheet-backdrop" id="settings-backdrop" onclick="closeSettings()"></div>
+<div class="sheet" id="settings-sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-head">
+    <div class="sheet-title">⚙️ Настройки</div>
+    <button class="sheet-close" onclick="closeSettings()">✕</button>
+  </div>
+  <div class="settings-body">
+    <div class="settings-divider" id="s-div-appearance">Внешний вид</div>
+    <div class="toggle-row">
+      <div class="toggle-icon">🌙</div>
+      <div class="toggle-label" id="s-lbl-dark">Тёмная тема</div>
+      <label class="toggle">
+        <input type="checkbox" id="dark-toggle" onchange="toggleDark(this.checked)">
+        <div class="toggle-track"></div>
+        <div class="toggle-thumb"></div>
+      </label>
+    </div>
+    <div class="settings-divider" id="s-div-lang">Язык</div>
+    <div class="toggle-row">
+      <div class="toggle-icon">🌐</div>
+      <div class="toggle-label" id="s-lbl-lang">Язык интерфейса</div>
+    </div>
+    <div class="lang-selector" style="margin-top:-2px;margin-bottom:8px;padding:0 0 4px">
+      <button class="lang-btn active" id="lang-ru" onclick="setLang('ru')">🇷🇺 Русский</button>
+      <button class="lang-btn" id="lang-en" onclick="setLang('en')">🇬🇧 English</button>
+    </div>
+    <div class="settings-divider" id="s-div-notif">Уведомления</div>
+    <div class="toggle-row">
+      <div class="toggle-icon">🔔</div>
+      <div class="toggle-label" id="s-lbl-notif-new">Новые заявки</div>
+      <label class="toggle">
+        <input type="checkbox" id="notif-toggle" checked onchange="save('notif',this.checked)">
+        <div class="toggle-track"></div>
+        <div class="toggle-thumb"></div>
+      </label>
+    </div>
+    <div class="toggle-row">
+      <div class="toggle-icon">📍</div>
+      <div class="toggle-label" id="s-lbl-notif-map">Новые метки рядом</div>
+      <label class="toggle">
+        <input type="checkbox" id="notif-map-toggle" checked onchange="save('notifMap',this.checked)">
+        <div class="toggle-track"></div>
+        <div class="toggle-thumb"></div>
+      </label>
+    </div>
+    <div class="settings-divider" id="s-div-about">О приложении</div>
+    <div class="toggle-row" style="cursor:default">
+      <div class="toggle-icon">🇧🇪</div>
+      <div class="toggle-label">ActivityMap</div>
+      <div style="font-size:12px;color:var(--text3)" id="s-lbl-version">v1.0 Beta</div>
+    </div>
+  </div>
+</div>
+
+<!-- Privacy sheet -->
+<div class="sheet-backdrop" id="privacy-backdrop" onclick="closePrivacy()"></div>
+<div class="sheet" id="privacy-sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-head">
+    <div class="sheet-title">🔒 Конфиденциальность</div>
+    <button class="sheet-close" onclick="closePrivacy()">✕</button>
+  </div>
+  <div class="sheet-body privacy-body">
+    <div class="privacy-date">Дата вступления в силу: 1 июля 2026 г.</div>
+    <div class="privacy-block">ActivityMap работает только в Брюсселе, Антверпене, Брюгге и Генте. Мы никогда не знаем твой точный адрес.</div>
+    <h3>1. Данные которые мы собираем</h3>
+    <p>Имя (ввод пользователя), возраст, город из списка четырёх, Telegram ID. Мы <b>не собираем</b> адрес, телефон, email, историю перемещений.</p>
+    <h3>2. Геолокация и защита адреса</h3>
+    <div class="privacy-block">При создании метки координаты автоматически смещаются на 10–30 метров в случайном направлении <b>до передачи на сервер</b>. Другие пользователи видят только примерную область — определить подъезд или квартиру невозможно.</div>
+    <p><b>Точные</b> GPS-координаты на сервер не передаются и нигде не сохраняются — только смещённые (±30м). После удаления метки (авто через 12ч) координаты удаляются без восстановления.</p>
+    <h3>3. Встречи и безопасность</h3>
+    <div class="privacy-block warn">ActivityMap — платформа знакомств для активностей. Мы <b>не несём ответственности</b> за действия пользователей, содержание общения и последствия личных встреч.</div>
+    <p>Рекомендации безопасности: первые встречи — только в общественных местах; сообщи кому-то куда идёшь; доверяй интуиции.</p>
+    <h3>4. Модерация</h3>
+    <p>Жалоба — два нажатия. При 3+ жалобах разных пользователей — автоблокировка.</p>
+    <h3>5. Хранение данных</h3>
+    <p>Метки удаляются через 12 часов. Профиль хранится до вашего запроса на удаление (обработка 7 рабочих дней).</p>
+    <h3>6. Третьи лица</h3>
+    <p>Мы не продаём и не передаём данные третьим лицам. Исключение — официальные запросы правоохранительных органов.</p>
+    <h3>7. Возраст</h3>
+    <p>Сервис только для лиц 18+. Несовершеннолетние блокируются немедленно.</p>
+    <h3>8. Контакт</h3>
+    <p>Запросы на удаление данных и вопросы: <b>@ActivityMapSupport</b></p>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const tg = window.Telegram?.WebApp;
+if(tg){
+  tg.expand();
+  tg.ready();
+  // ── SWIPE FIX: prevent Telegram from closing Mini App on swipe-up ──
+  // disableVerticalSwipes available since Bot API 7.7
+  if(typeof tg.disableVerticalSwipes === 'function') tg.disableVerticalSwipes();
+  // Also prevent native scroll/swipe-close via touch
+  document.addEventListener('touchmove', e=>{
+    // Only block when the target is the map itself (not scrollable sheets/lists)
+    const mapEl = document.getElementById('map');
+    if(mapEl && mapEl.contains(e.target)){
+      // Let Leaflet handle map pan, but prevent page-level scroll (which triggers TG close)
+      // We don't stopPropagation so Leaflet still pans, but prevent default page scroll
+    }
+  }, {passive:true});
+  // Confirm before close to prevent accidental exits
+  if(typeof tg.enableClosingConfirmation === 'function') tg.enableClosingConfirmation();
+  // При изменении размера viewport (expand/collapse) обновляем карту
+  tg.onEvent('viewportChanged',()=>{
+    if(!map) return;
+    setTimeout(()=>map&&map.invalidateSize(),50);
+  });
+}
+
+// ── BACK BUTTON MANAGER ───────────────────────────────────
+// Telegram BackButton.onClick накапливает обработчики при каждом вызове.
+// Используем единый менеджер — всегда один активный обработчик.
+let _bbHandler=null;
+function setBackButton(fn){
+  if(!tg)return;
+  if(_bbHandler){try{tg.BackButton.offClick(_bbHandler)}catch(e){}}
+  _bbHandler=fn;
+  if(fn){tg.BackButton.show();tg.BackButton.onClick(_bbHandler);}
+  else{tg.BackButton.hide();}
+}
+function clearBackButton(){setBackButton(null);}
+
+// ── CONFIG ────────────────────────────────────────────────
+// После деплоя замени на реальный URL: const API = 'https://your-app.up.railway.app'
+const API = '';
+const TG_INIT = tg?.initData || '';
+
+// ── TRANSLATIONS ──────────────────────────────────────────
+const I18N = {
+  ru:{
+    nav_map:'Карта',nav_list:'Мэтчи',nav_requests:'Заявки',nav_profile:'Профиль',
+    geo_title:'Разреши геолокацию',
+    geo_sub:'Это нужно, чтобы ты видел активности рядом и правильно определился с городом.',
+    geo_allow:'📍 Разрешить геолокацию',geo_skip:'Выбрать город вручную',
+    geo_note:'🔒 Точные координаты обрабатываются только на твоём устройстве',
+    reg_title:'Добро пожаловать!',
+    reg_sub:'ActivityMap работает в 4 городах Бельгии — найди компанию рядом прямо сегодня.',
+    name_label:'Имя',name_ph:'Как тебя зовут?',age_label:'Возраст',age_ph:'от 18 до 80',
+    city_label:'Город',city_change:'Изменить',city_loading:'Определяем твой город...',
+    submit:'Начать →',
+    tab_in:'📥 Входящие',tab_out:'📤 Исходящие',
+    empty_in:'Входящих заявок нет',empty_in_sub:'Создай метку — люди начнут откликаться',
+    all_in_matches:'Все заявки в Мэтчах 🤝',all_in_matches_sub:'Открой вкладку Мэтчи чтобы написать',
+    empty_out:'Нет исходящих заявок',empty_out_sub:'Найди активность и нажми «Интересно!»',
+    empty_city:c=>`В ${c} пока пусто`,empty_city_sub:'Создай первую метку — нажми + внизу',
+    accept:'✓ Принять',decline:'Отклонить',
+    s_accepted:'✅ Принято — контакт передан',s_declined:'✕ Отклонено',s_sent:'📤 Заявка отправлена · ожидание',
+    join_for:'Хочет присоединиться к:',
+    interest_btn:'👋 Интересно! Хочу присоединиться',interest_sending:'⏳ Отправляем...',interest_sent:'✅ Заявка отправлена!',
+    report:'⚑ Пожаловаться на пользователя',del_my_pin:'🗑 Удалить мою метку',its_you:'Это ты',
+    addr_hidden:'Адрес скрыт',no_desc:'Описание не указано',
+    age_years:n=>`${n} лет`,
+    acts_n:n=>`${n} активност${n===1?'ь':'и'}`,no_one:'Пока никого — будь первым!',
+    my_pin_lbl:'Моя метка',my_pin_sub:'Нажми чтобы посмотреть',
+    create_t1:'Создать метку',create_t2:'Описание',create_t3:'Время',
+    cat_q:'Что планируешь?',next:'Далее →',skip:'Пропустить',
+    t_now:'Прямо сейчас',t_1h:'Через час',t_2h:'Через 2 часа',
+    t_eve:'Сегодня вечером',t_custom:'Ввести время...',
+    time_today_at:'сегодня в ',
+    map_style_0:'Живая',map_style_1:'Чистая',map_style_2:'Классика',
+    loc_picker_hint:'Перетащи карту · место встречи',
+    loc_confirm:'📍 Подтвердить место',loc_back:'← Назад',
+    pin_ok:e=>`${e} Метка опубликована! 🛡 Адрес скрыт`,pin_del:'Метка удалена',
+    pin_exists:'Сначала удали текущую метку',
+    accepted_fn:n=>`✅ Принято! Мэтч с ${n} — смотри Мэтчи 🤝`,declined:'Заявка отклонена',
+    notif_fn:n=>`${n} получит уведомление 👋`,
+    matches_title:'🤝 Мэтчи',
+    matches_sub_n:n=>`${n} подтверждённых знакомства`,matches_sub_1:'1 подтверждённое знакомство',
+    matches_empty:'Мэтчей пока нет',
+    matches_empty_sub:'Нажми 👋 на чью-нибудь метку или создай свою — и жди ответа',
+    match_new:'🤝 Новый мэтч! Загляни во вкладку',
+    match_via:'Познакомились через:',
+    match_write:'✈️ Написать в Telegram',
+    match_no_username:'@username не указан',
+    my_pin_active:'Моя метка активна',
+    s_accepted:'✅ Принято — посмотри Мэтчи',
+    photo_ok:'Фото обновлено ✅',photo_del:'Фото удалено',
+    reg_ok:n=>`Привет, ${n}! 🎉`,
+    enter_name:'Введи имя',enter_age:'Возраст 18–80',enter_city:'Выбери город',
+    pin_expired:'Твоя метка истекла (12 ч)',
+    name_ok:'Имя изменено',age_ok:'Возраст изменён',age_err:'Возраст 18–80',
+    city_prefix:'Город: ',
+    confirm_del_pin:'Удалить метку?',
+    del_acc_title:'Удалить аккаунт?',
+    del_acc_msg:'Все данные удалятся без восстановления. Написать в поддержку для подтверждения.',
+    write:'Написать',
+    report_title:'Жалоба',report_msg:'Выбери причину',
+    r_fake:'Фейк / бот',r_spam:'Спам',r_bad:'Неприемлемо',report_sent:'Жалоба отправлена',
+    time_fmt:'ЧЧ:ММ',
+    geo_shield:'🛡 Адрес скрыт · ±30м',
+    settings_app:'⚙️ Настройки',
+    s_appearance:'Внешний вид',s_dark:'Тёмная тема',
+    s_lang:'Язык',s_lang_lbl:'Язык интерфейса',
+    s_notif:'Уведомления',s_notif_new:'Новые заявки',s_notif_map:'Новые метки рядом',
+    s_about:'О приложении',s_version:'v1.0 Beta',
+    photo_sheet_title:'Фото профиля',
+    photo_cam:'Сфотографироваться',photo_cam_sub:'Открыть камеру прямо сейчас',
+    photo_gal:'Выбрать из галереи',photo_gal_sub:'Выбрать существующее фото',
+    photo_rem:'Удалить фото',photo_rem_sub:'Вернуться к аватару с буквой',
+    choose_city:'Выбери город',
+    prof_s_profile:'Профиль',prof_s_about:'О приложении',prof_s_account:'Аккаунт',
+    prof_name:'Изменить имя',prof_city:'Сменить город',prof_age:'Изменить возраст',
+    prof_about:'ActivityMap v1.0',prof_privacy:'Политика конфиденциальности',
+    prof_delete:'Удалить аккаунт и данные',
+    api_err:'Ошибка соединения, попробуй ещё раз',
+    detecting:'⏳ Определяем...',
+    cat_coffee:'Кофе / Чай',cat_walk:'Прогулка',cat_bar:'Бар / Вечер',cat_sport:'Спорт',
+    cat_language:'Языки',cat_culture:'Культура',cat_food:'Еда',cat_work:'Коворкинг',cat_other:'Другое',
+    chip_all:'Все',chip_coffee:'Кофе',chip_walk:'Прогулка',chip_bar:'Бар',chip_sport:'Спорт',
+    chip_language:'Языки',chip_culture:'Культура',chip_food:'Еда',chip_work:'Коворк',chip_other:'Другое',
+    s_div_account:'Аккаунт',
+    prof_sec_profile:'Профиль',prof_sec_about:'О приложении',
+    prof_lbl_name:'Изменить имя',prof_lbl_city:'Сменить город',prof_lbl_age:'Изменить возраст',
+    prof_lbl_about:'ActivityMap v1.0',prof_lbl_privacy:'Политика конфиденциальности',
+    other_label_hint:'Что конкретно? (1–2 слова)',other_label_ph:'Например: йога, русский язык...',
+    pin_success_title:'Метка опубликована!',pin_success_sub:'Адрес скрыт · ±30м',
+    reg_lbl_name:'Имя',reg_lbl_age:'Возраст',reg_lbl_city:'Город',
+    city_auto_change:'Изменить',
+    geo_loading_text:'Определяем твой город...',
+    geo_p1:'<b>Используем:</b> координаты для определения города',
+    geo_p2:'<b>Защита:</b> метка смещается на 10–30м — адрес скрыт',
+    geo_p3:'<b>Не передаём</b> координаты третьим лицам',
+    detail_title:'Активность',
+    loc_source_title:'Место встречи',
+    loc_source_gps:'GPS · Уточни на карте →',
+    loc_source_nogps:'Нет GPS · Выбрать место на карте →',
+    loc_source_manual:'Место выбрано вручную ✓',
+  },
+  en:{
+    nav_map:'Map',nav_list:'Matches',nav_requests:'Requests',nav_profile:'Profile',
+    geo_title:'Allow Location',
+    geo_sub:'This helps you find activities nearby and identify your city.',
+    geo_allow:'📍 Allow Location',geo_skip:'Choose city manually',
+    geo_note:'🔒 Exact coordinates are processed on your device only',
+    reg_title:'Welcome!',
+    reg_sub:'ActivityMap covers 4 cities in Belgium — find someone to hang out with today.',
+    name_label:'Name',name_ph:'What\'s your name?',age_label:'Age',age_ph:'18 to 80',
+    city_label:'City',city_change:'Change',city_loading:'Detecting your city...',
+    submit:'Start →',
+    tab_in:'📥 Incoming',tab_out:'📤 Outgoing',
+    empty_in:'No incoming requests',empty_in_sub:'Create a pin — people will start responding',
+    all_in_matches:'All requests accepted 🤝',all_in_matches_sub:'Open the Matches tab to write',
+    empty_out:'No outgoing requests',empty_out_sub:'Find an activity and tap "I\'m interested!"',
+    empty_city:c=>`Nothing in ${c} yet`,empty_city_sub:'Create the first pin — tap + below',
+    accept:'✓ Accept',decline:'Decline',
+    s_accepted:'✅ Accepted — contact shared',s_declined:'✕ Declined',s_sent:'📤 Request sent · waiting',
+    join_for:'Wants to join:',
+    interest_btn:'👋 I\'m interested! Join',interest_sending:'⏳ Sending...',interest_sent:'✅ Request sent!',
+    report:'⚑ Report user',del_my_pin:'🗑 Delete my pin',its_you:'That\'s you',
+    addr_hidden:'Address hidden',no_desc:'No description',
+    age_years:n=>`${n} years old`,
+    acts_n:n=>`${n} activit${n===1?'y':'ies'}`,no_one:'Nobody yet — be the first!',
+    my_pin_lbl:'My pin',my_pin_sub:'Tap to view',
+    create_t1:'Create pin',create_t2:'Description',create_t3:'Time',
+    cat_q:'What are you planning?',next:'Next →',skip:'Skip',
+    t_now:'Right now',t_1h:'In an hour',t_2h:'In 2 hours',
+    t_eve:'This evening',t_custom:'Custom time...',
+    time_today_at:'today at ',
+    map_style_0:'Vivid',map_style_1:'Clean',map_style_2:'Classic',
+    loc_picker_hint:'Drag map to set the meeting spot',
+    loc_confirm:'📍 Confirm location',loc_back:'← Back',
+    pin_ok:e=>`${e} Pin published! 🛡 Address hidden`,pin_del:'Pin deleted',
+    pin_exists:'Delete your current pin first',
+    accepted_fn:n=>`✅ Accepted! Matched with ${n} — check Matches 🤝`,declined:'Request declined',
+    notif_fn:n=>`${n} will get a notification 👋`,
+    matches_title:'🤝 Matches',
+    matches_sub_n:n=>`${n} confirmed connections`,matches_sub_1:'1 confirmed connection',
+    matches_empty:'No matches yet',
+    matches_empty_sub:'Tap 👋 on someone\'s pin or create your own — then wait for a response',
+    match_new:'🤝 New match! Check the tab',
+    match_via:'Connected through:',
+    match_write:'✈️ Message on Telegram',
+    match_no_username:'@username not set',
+    my_pin_active:'My pin is active',
+    s_accepted:'✅ Accepted — check Matches',
+    photo_ok:'Photo updated ✅',photo_del:'Photo removed',
+    reg_ok:n=>`Welcome, ${n}! 🎉`,
+    enter_name:'Enter your name',enter_age:'Age must be 18–80',enter_city:'Choose a city',
+    pin_expired:'Your pin expired (12h)',
+    name_ok:'Name updated',age_ok:'Age updated',age_err:'Age must be 18–80',
+    city_prefix:'City: ',
+    confirm_del_pin:'Delete pin?',
+    del_acc_title:'Delete account?',
+    del_acc_msg:'All data will be deleted without recovery. Write to support to confirm.',
+    write:'Write',
+    report_title:'Report',report_msg:'Choose a reason',
+    r_fake:'Fake / bot',r_spam:'Spam',r_bad:'Inappropriate',report_sent:'Report sent',
+    time_fmt:'HH:MM',
+    geo_shield:'🛡 Address hidden · ±30m',
+    settings_app:'⚙️ Settings',
+    s_appearance:'Appearance',s_dark:'Dark theme',
+    s_lang:'Language',s_lang_lbl:'Interface language',
+    s_notif:'Notifications',s_notif_new:'New requests',s_notif_map:'New pins nearby',
+    s_about:'About',s_version:'v1.0 Beta',
+    photo_sheet_title:'Profile photo',
+    photo_cam:'Take a photo',photo_cam_sub:'Open camera now',
+    photo_gal:'Choose from gallery',photo_gal_sub:'Select an existing photo',
+    photo_rem:'Remove photo',photo_rem_sub:'Go back to letter avatar',
+    choose_city:'Choose a city',
+    prof_s_profile:'Profile',prof_s_about:'About',prof_s_account:'Account',
+    prof_name:'Change name',prof_city:'Change city',prof_age:'Change age',
+    prof_about:'ActivityMap v1.0',prof_privacy:'Privacy Policy',
+    prof_delete:'Delete account & data',
+    api_err:'Connection error, please try again',
+    detecting:'⏳ Detecting...',
+    cat_coffee:'Coffee / Tea',cat_walk:'Walk',cat_bar:'Bar / Evening',cat_sport:'Sport',
+    cat_language:'Languages',cat_culture:'Culture',cat_food:'Food',cat_work:'Co-working',cat_other:'Other',
+    chip_all:'All',chip_coffee:'Coffee',chip_walk:'Walk',chip_bar:'Bar',chip_sport:'Sport',
+    chip_language:'Languages',chip_culture:'Culture',chip_food:'Food',chip_work:'Co-work',chip_other:'Other',
+    s_div_account:'Account',
+    prof_sec_profile:'Profile',prof_sec_about:'About',
+    prof_lbl_name:'Change name',prof_lbl_city:'Change city',prof_lbl_age:'Change age',
+    prof_lbl_about:'ActivityMap v1.0',prof_lbl_privacy:'Privacy Policy',
+    other_label_hint:'What exactly? (1–2 words)',other_label_ph:'e.g. yoga, book club...',
+    pin_success_title:'Pin published!',pin_success_sub:'Address hidden · ±30m',
+    reg_lbl_name:'Name',reg_lbl_age:'Age',reg_lbl_city:'City',
+    city_auto_change:'Change',
+    geo_loading_text:'Detecting your city...',
+    geo_p1:'<b>We use:</b> coordinates to identify your city',
+    geo_p2:'<b>Privacy:</b> pin is shifted 10–30m — address hidden',
+    geo_p3:'<b>We do not share</b> coordinates with third parties',
+    detail_title:'Activity',
+    loc_source_title:'Meeting spot',
+    loc_source_gps:'GPS · Adjust on map →',
+    loc_source_nogps:'No GPS · Pick on map →',
+    loc_source_manual:'Location set manually ✓',
+  }
+};
+let lang='ru';
+function t(k,...a){const v=(I18N[lang]||I18N.ru)[k]??I18N.ru[k]??k;return typeof v==='function'?v(...a):v}
+
+function applyLang(){
+  function qi(id){return document.getElementById(id)}
+  function qs(sel){return document.querySelector(sel)}
+  function si(id,k){const el=qi(id);if(el)el.textContent=t(k)}
+  // Nav
+  qs('#nav-map .nav-label').textContent=t('nav_map');
+  si('nav-list-label','nav_list');
+  qs('#nav-requests .nav-label').textContent=t('nav_requests');
+  qs('#nav-profile .nav-label').textContent=t('nav_profile');
+  // Matches screen header
+  si('matches-title','matches_title');
+  // Welcome screen (статичный текст, не переводим — только RU)
+  // Reg screen
+  const regTitle=qs('.reg-title');if(regTitle)regTitle.textContent=t('reg_title');
+  const regSub=qs('.reg-sub');if(regSub)regSub.textContent=t('reg_sub');
+  si('reg-lbl-name','reg_lbl_name');si('reg-lbl-age','reg_lbl_age');si('reg-lbl-city','reg_lbl_city');
+  const regName=qi('reg-name');if(regName)regName.placeholder=t('name_ph');
+  const regAge=qi('reg-age');if(regAge)regAge.placeholder=t('age_ph');
+  si('city-auto-change','city_auto_change');
+  si('geo-loading-text','geo_loading_text');
+  si('reg-btn','submit');
+  // Settings sheet
+  const stitle=qs('#settings-sheet .sheet-title');if(stitle)stitle.textContent=t('settings_app');
+  si('s-div-appearance','s_appearance');
+  si('s-lbl-dark','s_dark');
+  si('s-div-lang','s_lang');
+  si('s-lbl-lang','s_lang_lbl');
+  si('s-div-notif','s_notif');
+  si('s-lbl-notif-new','s_notif_new');
+  si('s-lbl-notif-map','s_notif_map');
+  si('s-div-about','s_about');
+  si('s-lbl-version','s_version');
+  si('s-div-account','s_div_account');
+  si('s-lbl-del-acc','prof_delete');
+  // Photo sheet
+  const photoTitle=qs('#photo-sheet .sheet-title');if(photoTitle)photoTitle.textContent=t('photo_sheet_title');
+  si('photo-cam-title','photo_cam');si('photo-cam-sub','photo_cam_sub');
+  si('photo-gal-title','photo_gal');si('photo-gal-sub','photo_gal_sub');
+  si('photo-rem-title','photo_rem');si('photo-rem-sub','photo_rem_sub');
+  // Geo badge in profile
+  const geoBadge=qs('.geo-badge');if(geoBadge)geoBadge.textContent=t('geo_shield');
+  // Req tabs
+  si('tab-in','tab_in');si('tab-out','tab_out');
+  // City picker sheet
+  const csTitle=qs('#city-sheet .sheet-title');if(csTitle)csTitle.textContent=t('choose_city');
+  // Create sheet
+  si('cat-q-title','cat_q');
+  si('time-q-title','create_t3');
+  si('btn-next-time','next');
+  si('btn-skip','skip');
+  si('other-label-hint','other_label_hint');
+  const otherInp=qi('other-label-input');if(otherInp)otherInp.placeholder=t('other_label_ph');
+  // Cat labels in create sheet
+  ['coffee','walk','bar','sport','language','culture','food','work','other'].forEach(c=>si('cat-'+c,'cat_'+c));
+  // Time item labels (emoji уже в HTML, только текст)
+  [['ti-now','t_now'],['ti-1h','t_1h'],['ti-2h','t_2h'],['ti-eve','t_eve'],['ti-custom','t_custom']].forEach(([id,k])=>{
+    const el=qs('#'+id+' .ti-label');if(el)el.textContent=t(k);
+  });
+  // Description textarea placeholder
+  const descTA=qi('desc-input');if(descTA)descTA.placeholder=lang==='en'?'e.g. just moved here, up for anything 🙌':'Например: только переехал, ищу тусовку 🙌';
+  // Chip filter labels
+  si('chip-all',lang==='ru'?'chip_all':'chip_all');
+  const chipAllEl=qi('chip-all');if(chipAllEl)chipAllEl.textContent='🗺 '+t('chip_all');
+  ['coffee','walk','bar','sport','language','culture','food','work','other'].forEach(c=>si('chip-lbl-'+c,'chip_'+c));
+  // Profile labels
+  si('prof-sec-profile','prof_sec_profile');si('prof-sec-about','prof_sec_about');
+  si('prof-lbl-name','prof_lbl_name');si('prof-lbl-city','prof_lbl_city');si('prof-lbl-age','prof_lbl_age');
+  si('prof-lbl-about','prof_lbl_about');si('prof-lbl-privacy','prof_lbl_privacy');
+  // Detail sheet title
+  si('detail-sheet-title','detail_title');
+  // Loc source row
+  si('loc-source-title','loc_source_title');
+  // Pin success popup
+  si('pin-success-title','pin_success_title');si('pin-success-sub','pin_success_sub');
+  // Map style picker labels
+  [0,1,2].forEach(i=>{const el=qi('msp-lbl-'+i);if(el)el.textContent=t('map_style_'+i)});
+  // Location picker labels
+  const locHint=qi('loc-top-hint');if(locHint)locHint.textContent=t('loc_picker_hint');
+  const locConfirm=document.querySelector('.loc-confirm-btn');if(locConfirm)locConfirm.textContent=t('loc_confirm');
+  const locCancel=document.querySelector('.loc-cancel-btn');if(locCancel)locCancel.textContent=t('loc_back');
+  // City card names in pickers (ru/en)
+  document.querySelectorAll('[data-city]').forEach(card=>{
+    const ru=card.getAttribute('data-city');
+    const nameEl=card.querySelector('.cc-name');
+    if(nameEl) nameEl.textContent=lang==='en'?(CITIES[ru]?.en||ru):ru;
+  });
+  // Refresh city display everywhere
+  if(user){
+    updateProfileUI();
+    // Обновляем заголовок списка если элемент уже в DOM
+    const listTitle=document.getElementById('list-city-title');
+    if(listTitle) listTitle.textContent='📍 '+(lang==='en'?(CITIES[user.city]?.en||user.city):user.city);
+  }
+}
+
+function setLang(l){
+  lang=l; save('lang',l);
+  document.getElementById('lang-ru').classList.toggle('active',l==='ru');
+  document.getElementById('lang-en').classList.toggle('active',l==='en');
+  applyLang();
+  showToast(l==='ru'?'Язык: Русский 🇷🇺':'Language: English 🇬🇧');
+}
+
+// ── CITIES ────────────────────────────────────────────────
+const CITIES = {
+  'Брюссель':{lat:50.8503,lng:4.3517,en:'Brussels'},
+  'Антверпен':{lat:51.2194,lng:4.4025,en:'Antwerpen'},
+  'Брюгге':{lat:51.2093,lng:3.2247,en:'Brugge'},
+  'Гент':{lat:51.0543,lng:3.7174,en:'Ghent'},
+};
+const CITY_NAMES = Object.keys(CITIES);
+const CAT_COLORS = {coffee:'#E8845A',walk:'#4A90E2',bar:'#9B59B6',sport:'#27AE60',language:'#2BBFA8',culture:'#E91E8C',food:'#FF6B35',work:'#607D8B',other:'#95A5A6'};
+
+
+// ── STATE ─────────────────────────────────────────────────
+let user=null, myPin=null, allPins=[], mapFilter='all';
+let map=null, tileLayer=null, markers={}, clusterGroup=null;
+let pinDraft={};
+let gpsLat=null, gpsLng=null;
+let selectedCityReg=null;
+let reqTab='in';
+let receivedReqs=[], sentReqs=[], matches=[];
+
+// ── STORAGE (изолируем по Telegram user ID — разные аккаунты не мешают друг другу) ──
+// UID устанавливается один раз при инициализации tg SDK
+const _UID=String(window.Telegram?.WebApp?.initDataUnsafe?.user?.id||'demo');
+function load(k){try{return JSON.parse(localStorage.getItem('am_'+_UID+'_'+k))}catch{return null}}
+function save(k,v){try{localStorage.setItem('am_'+_UID+'_'+k,JSON.stringify(v))}catch(e){console.warn('Storage error:',k,e);}}
+
+// ── HTML ESCAPE (XSS prevention) ──────────────────────────
+function esc(s){
+  if(s==null) return '';
+  return String(s)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
+}
+
+// ── API LAYER ─────────────────────────────────────────────
+async function apiCall(method,path,body=null){
+  if(!API) return null; // нет URL → работаем на моках
+  try{
+    const opts={method,headers:{'Content-Type':'application/json','X-Init-Data':TG_INIT}};
+    if(body) opts.body=JSON.stringify(body);
+    const r=await fetch(API+path,opts);
+    if(!r.ok) throw new Error(r.status);
+    return await r.json();
+  }catch(e){console.warn('API',e);return null;}
+}
+
+// ── THEME ─────────────────────────────────────────────────
+function applyTheme(dark){
+  document.documentElement.setAttribute('data-theme',dark?'dark':'');
+  const tog=document.getElementById('dark-toggle');
+  if(tog) tog.checked=dark;
+  // Update Telegram Mini App header to match theme
+  if(tg?.setHeaderColor) tg.setHeaderColor(dark ? '#0D0D14' : '#F5F3EF');
+  if(tg?.setBackgroundColor) tg.setBackgroundColor(dark ? '#0D0D14' : '#F5F3EF');
+  updateMapTiles();
+}
+function toggleDark(on){
+  save('dark',on);applyTheme(on);
+  // Re-render pins so avatar bg adapts (dark=dark card, light=white)
+  if(map) renderMapPins();
+}
+
+// ── MAP STYLE ─────────────────────────────────────────────
+let mapStyle=parseInt(load('mapStyle')||'0')||0;
+
+// 0=Живая (Snapchat-style, Voyager — тёплая, чистая)
+// 1=Чистая (Positron — минималистичная, белая)
+// 2=Классика (OSM — стандартная)
+// Dark mode всегда заменяет на тёмные тайлы независимо от выбора
+const TILE_STYLES={
+  light:[
+    // Voyager — тёплые тона, чистые дороги, похож на Snap Map
+    {url:'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',   opts:{maxZoom:19,subdomains:'abcd',attribution:''}},
+    // Positron — ультраминималистичный, почти белый
+    {url:'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',             opts:{maxZoom:19,subdomains:'abcd',attribution:''}},
+    // OSM стандарт — fallback
+    {url:'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',                         opts:{maxZoom:19,subdomains:'abc',attribution:''}},
+  ],
+  dark:[
+    {url:'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',              opts:{maxZoom:19,subdomains:'abcd',attribution:''}},
+    {url:'https://{s}.basemaps.cartocdn.com/dark_matter_no_labels/{z}/{x}/{y}{r}.png', opts:{maxZoom:19,subdomains:'abcd',attribution:''}},
+    {url:'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png',         opts:{maxZoom:19,subdomains:'abcd',attribution:''}},
+  ]
+};
+
+// ── MAP TILES (light / dark) ──────────────────────────────
+function updateMapTiles(){
+  if(!map||typeof L==='undefined') return;
+  const dark=load('dark')===true;
+  const s=TILE_STYLES[dark?'dark':'light'][mapStyle]||TILE_STYLES[dark?'dark':'light'][0];
+  if(tileLayer) map.removeLayer(tileLayer);
+  tileLayer=L.tileLayer(s.url,{...s.opts,crossOrigin:''});
+  // Fallback: если тайлы не грузятся (CDN недоступен) → переключаемся на OSM
+  tileLayer.on('tileerror',function(){
+    if(this._fallbackUsed) return;
+    this._fallbackUsed=true;
+    map.removeLayer(this);
+    tileLayer=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,subdomains:'abc',crossOrigin:''});
+    tileLayer.addTo(map);
+  });
+  tileLayer.addTo(map);
+}
+
+function setMapStyle(n){
+  mapStyle=n; save('mapStyle',n);
+  document.querySelectorAll('.msp-row').forEach((r,i)=>r.classList.toggle('active',i===n));
+  updateMapTiles();
+  // Закрыть попап
+  document.getElementById('map-style-popup').classList.remove('open');
+  if(tg) tg.HapticFeedback?.selectionChanged();
+}
+
+function toggleMapStylePicker(){
+  const popup=document.getElementById('map-style-popup');
+  popup.classList.toggle('open');
+  // Обновляем активный стиль в попапе
+  document.querySelectorAll('.msp-row').forEach((r,i)=>r.classList.toggle('active',i===mapStyle));
+}
+
+// ── MY LOCATION ───────────────────────────────────────────
+let _locMarker=null; // синяя точка "я здесь"
+
+function goToMyLocation(){
+  if(!map||!navigator.geolocation) return;
+  const btn=document.getElementById('map-locate-btn');
+  btn.classList.add('locating');
+  btn.classList.remove('located');
+  if(tg) tg.HapticFeedback?.selectionChanged();
+
+  navigator.geolocation.getCurrentPosition(
+    pos=>{
+      const lat=pos.coords.latitude;
+      const lng=pos.coords.longitude;
+      gpsLat=lat; gpsLng=lng;
+
+      // Центрируем карту
+      map.setView([lat,lng],15,{animate:true});
+
+      // Убираем старую точку
+      if(_locMarker) map.removeLayer(_locMarker);
+
+      // Рисуем синюю точку «я здесь» как в Google Maps
+      _locMarker=L.circleMarker([lat,lng],{
+        radius:9,
+        fillColor:'#4285F4',
+        fillOpacity:1,
+        color:'#fff',
+        weight:3,
+        pane:'markerPane'
+      }).addTo(map);
+
+      // Пульсирующий круг вокруг точки (точность GPS)
+      const acc=pos.coords.accuracy;
+      if(acc&&acc<500){
+        L.circle([lat,lng],{
+          radius:acc,
+          fillColor:'#4285F4',
+          fillOpacity:0.08,
+          color:'#4285F4',
+          weight:1
+        }).addTo(map);
+      }
+
+      btn.classList.remove('locating');
+      btn.classList.add('located');
+      if(tg) tg.HapticFeedback?.notificationOccurred('success');
+    },
+    ()=>{
+      btn.classList.remove('locating');
+      showToast('📍 Не удалось определить местоположение');
+    },
+    {timeout:10000,enableHighAccuracy:true,maximumAge:10000}
+  );
+}
+
+// Close map style popup when clicking outside
+document.addEventListener('click',e=>{
+  const popup=document.getElementById('map-style-popup');
+  if(popup?.classList.contains('open')
+    && !e.target.closest('.map-layer-btn')
+    && !e.target.closest('.map-style-popup')){
+    popup.classList.remove('open');
+  }
+});
+
+// ── INIT ──────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded',()=>{
+  // Default to dark on first visit — immersive Zenly-style map experience
+  const savedDark = load('dark');
+  applyTheme(savedDark !== null ? savedDark : true);
+  lang=load('lang')||'ru';
+  document.getElementById('lang-ru').classList.toggle('active',lang==='ru');
+  document.getElementById('lang-en').classList.toggle('active',lang==='en');
+  applyLang();
+
+  user=load('user');
+  myPin=load('myPin');
+  checkPinExpiry(); // проверяем 12-часовое истечение
+  // Загружаем сохранённые данные
+  matches=load('matches')||[];
+  sentReqs=load('sentReqs')||[];
+  receivedReqs=load('receivedReqs')||[];
+  // Получаем @username из Telegram если доступен
+  const tgUser=tg?.initDataUnsafe?.user;
+  if(tgUser){
+    const n=[tgUser.first_name,tgUser.last_name].filter(Boolean).join(' ');
+    document.getElementById('reg-name').value=n;
+    if(user&&tgUser.username) user.username='@'+tgUser.username;
+  }
+  // Мок-заявка убрана — только реальные заявки от реальных пользователей
+  if(!load('receivedReqs')) receivedReqs=[];
+  if(user){showApp();tryGetGpsSilent()}
+  else document.getElementById('geo-screen').classList.remove('hidden');
+});
+
+// ── PIN EXPIRY CHECK (12h) ────────────────────────────────
+function checkPinExpiry(){
+  if(!myPin) return;
+  if(!myPin.createdAt) return; // старые данные без метки времени — не удаляем
+  const age=Date.now()-myPin.createdAt;
+  if(age>12*60*60*1000){
+    myPin=null;
+    localStorage.removeItem('am_myPin');
+    setTimeout(()=>showToast(t('pin_expired')),600);
+  }
+}
+
+// ── SERVER SYNC ───────────────────────────────────────────
+async function syncFromServer(){
+  if(!API||!TG_INIT) return;
+  try{
+    // Restore user session from server
+    const meData=await apiCall('GET','/api/me');
+    if(meData?.user){
+      const u=meData.user;
+      user={
+        name: u.name,
+        age:  u.age,
+        city: u.city,
+        username: u.username?('@'+u.username):null,
+        photo: user?.photo||null  // photo stays local (not stored on server)
+      };
+      save('user',user);
+
+      if(meData.myPin){
+        const p=meData.myPin;
+        const cat=p.category||'other';
+        myPin={
+          id:'mine',
+          lat:gpsLat||CITIES[user.city]?.lat,
+          lng:gpsLng||CITIES[user.city]?.lng,
+          cat, emoji:p.emoji||'✨', catLabel:p.catLabel||t('cat_'+cat),
+          name:user.name, age:user.age, city:user.city,
+          desc:p.description||'', time:p.time_text, timeKey:null,
+          createdAt:new Date(p.created_at||Date.now()).getTime()
+        };
+        save('myPin',myPin);
+      }
+    }
+
+    // Restore requests from server
+    const reqs=await apiCall('GET','/api/requests');
+    if(reqs){
+      // Map server fields to frontend field names
+      receivedReqs=(reqs.received||[]).map(r=>({
+        id: r.id,
+        fromName: r.from_name,
+        fromAge: r.from_age,
+        fromCity: r.from_city,
+        fromUsername: r.from_username?('@'+r.from_username):null,
+        status: r.status,
+        activityCat: r.category,
+        activityEmoji: r.emoji||'✨',
+        activityLabel: r.catLabel||t('cat_'+r.category),
+        activityDesc: r.description||'',
+        time: r.time_text,
+        photo: null
+      }));
+      sentReqs=(reqs.sent||[]).map(r=>({
+        id: r.id,
+        toName: r.to_name,
+        toAge: r.to_age,
+        toCity: r.to_city,
+        toUsername: r.to_username?('@'+r.to_username):null,
+        status: r.status,
+        activityCat: r.category,
+        activityEmoji: r.emoji||'✨',
+        activityLabel: r.catLabel||t('cat_'+r.category),
+        activityDesc: r.description||'',
+        time: r.time_text,
+        photo: null
+      }));
+      save('receivedReqs',receivedReqs);
+      save('sentReqs',sentReqs);
+
+      // Build matches from accepted received requests
+      const serverMatches=(reqs.received||[])
+        .filter(r=>r.status==='accepted')
+        .map(r=>({
+          id:'smatch_'+r.id,
+          name: r.from_name,
+          age:  r.from_age,
+          city: r.from_city,
+          username: r.from_username?('@'+r.from_username):null,
+          photo: null,
+          activityEmoji: r.emoji||'✨',
+          activityCat: r.category,
+          activityLabel: r.catLabel||t('cat_'+r.category),
+          activityDesc: r.description||'',
+          matchedAt: new Date(r.created_at||Date.now()).getTime(),
+          seen: true
+        }));
+      // Merge: keep local-only matches, replace/add server ones
+      const existingIds=new Set(serverMatches.map(m=>m.id));
+      const localOnly=matches.filter(m=>!m.id.startsWith('smatch_'));
+      matches=[...localOnly,...serverMatches];
+      save('matches',matches);
+    }
+  }catch(e){
+    console.warn('[syncFromServer]',e);
+  }
+}
+
+function showApp(){
+  document.getElementById('geo-screen').classList.add('hidden');
+  document.getElementById('reg-screen').classList.add('hidden');
+  document.getElementById('nav').style.display='flex';
+  updateProfileUI();
+  updateReqBadge();
+  updateMatchBadge();
+  // Sync from server in background, then refresh UI
+  syncFromServer().then(()=>{
+    updateProfileUI();
+    updateReqBadge();
+    updateMatchBadge();
+  });
+  // Откладываем чуть дольше чем 1 frame: нужен полный layout + paint
+  setTimeout(()=>{
+    initMap();
+    loadPins();
+  },50);
+}
+
+// ── WELCOME → START ───────────────────────────────────────
+function startApp(){
+  const btn=document.querySelector('.welcome-start-btn');
+  btn.textContent='⏳'; btn.disabled=true;
+
+  // Берём имя из Telegram автоматически
+  const tgU=tg?.initDataUnsafe?.user;
+  if(tgU?.first_name){
+    const nameField=document.getElementById('reg-name');
+    if(nameField&&!nameField.value) nameField.value=tgU.first_name;
+  }
+
+  // Запрашиваем геолокацию — при успехе определяем город, при отказе показываем пикер
+  if(navigator.geolocation){
+    navigator.geolocation.getCurrentPosition(
+      pos=>{
+        gpsLat=pos.coords.latitude; gpsLng=pos.coords.longitude;
+        document.getElementById('geo-screen').classList.add('hidden');
+        document.getElementById('reg-screen').classList.remove('hidden');
+        detectCityFromGps(gpsLat,gpsLng);
+      },
+      ()=>{
+        // Геолокация отклонена — показываем рег без города
+        document.getElementById('geo-screen').classList.add('hidden');
+        document.getElementById('reg-screen').classList.remove('hidden');
+        showCityPicker();
+      },
+      {timeout:8000,enableHighAccuracy:false}
+    );
+  } else {
+    document.getElementById('geo-screen').classList.add('hidden');
+    document.getElementById('reg-screen').classList.remove('hidden');
+    showCityPicker();
+  }
+}
+function skipGeo(){
+  document.getElementById('geo-screen').classList.add('hidden');
+  document.getElementById('reg-screen').classList.remove('hidden');
+  showCityPicker();
+}
+function tryGetGpsSilent(){
+  if(!navigator.geolocation)return;
+  navigator.geolocation.getCurrentPosition(p=>{gpsLat=p.coords.latitude;gpsLng=p.coords.longitude},()=>{},{timeout:8000});
+}
+
+async function detectCityFromGps(lat,lng){
+  document.getElementById('geo-loading-reg').style.display='flex';
+  document.getElementById('city-picker-wrap').style.display='none';
+  document.getElementById('city-auto-wrap').style.display='none';
+  try{
+    const r=await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=ru`,{headers:{'User-Agent':'ActivityMapApp/1.0'}});
+    const d=await r.json();
+    const rawCity=d.address?.city||d.address?.town||d.address?.village||'';
+    const matched=CITY_NAMES.find(c=>rawCity.toLowerCase().includes(c.toLowerCase())||
+      CITIES[c].en.toLowerCase()===rawCity.toLowerCase());
+    document.getElementById('geo-loading-reg').style.display='none';
+    if(matched){
+      selectedCityReg=matched;
+      document.getElementById('city-auto-name').textContent=lang==='en'?(CITIES[matched]?.en||matched):matched;
+      document.getElementById('city-auto-wrap').style.display='block';
+    }else{
+      showCityPicker();
+    }
+  }catch{
+    document.getElementById('geo-loading-reg').style.display='none';
+    showCityPicker(); // Nominatim недоступен → показываем пикер
+  }
+}
+
+function showCityPicker(){
+  document.getElementById('city-auto-wrap').style.display='none';
+  document.getElementById('geo-loading-reg').style.display='none';
+  document.getElementById('city-picker-wrap').style.display='block';
+}
+function selectCity(city,el){
+  selectedCityReg=city;
+  document.querySelectorAll('#reg-screen .city-card').forEach(c=>c.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+// ── REGISTRATION ──────────────────────────────────────────
+async function submitReg(){
+  const name=document.getElementById('reg-name').value.trim();
+  const age=parseInt(document.getElementById('reg-age').value);
+  const city=selectedCityReg;
+  if(!name){showToast(t('enter_name'));return}
+  if(isNaN(age)||age<18||age>80){showToast(t('enter_age'));return}
+  if(!city){showToast(t('enter_city'));return}
+
+  const btn=document.getElementById('reg-btn');
+  btn.disabled=true;btn.textContent='⏳';
+
+  // Отправляем на бэк если API настроен
+  if(API&&TG_INIT){
+    const res=await apiCall('POST','/api/auth',{name,age,city,init_data:TG_INIT});
+    if(!res){showToast(t('api_err'));btn.disabled=false;btn.textContent=t('submit');return}
+  }
+
+  const tgU=tg?.initDataUnsafe?.user;
+  user={name,age,city,username:tgU?.username?('@'+tgU.username):null};
+  save('user',user);
+  showApp();
+  showToast(t('reg_ok',name));
+  if(tg) tg.HapticFeedback?.notificationOccurred('success');
+}
+
+// ── FUZZ COORDS ───────────────────────────────────────────
+function fuzzCoords(lat,lng){
+  const r=10+Math.random()*20, a=Math.random()*2*Math.PI;
+  return {lat:lat+r*Math.cos(a)/111320, lng:lng+r*Math.sin(a)/(111320*Math.cos(lat*Math.PI/180))};
+}
+
+// ── LOCATION PICKER ────────────────────────────────────────
+let _locPickerResolve=null; // колбэк когда пользователь выбрал место
+
+function enterLocationPicker(){
+  if(!map) return;
+  // Показываем map-screen если не на ней
+  switchScreen('map');
+  // Центрируем ТОЛЬКО на городе пользователя (или предыдущем ручном выборе).
+  // GPS намеренно игнорируем — пользователь может быть где угодно,
+  // а метки ставятся только в 4 бельгийских городах.
+  const cc=user&&CITIES[user.city];
+  const startLat=pinDraft.manualLat||(cc?.lat)||50.85;
+  const startLng=pinDraft.manualLng||(cc?.lng)||4.35;
+  map.setView([startLat,startLng],14,{animate:true});
+  // Обновляем эмодзи пина в crosshair
+  const pinEmoji=document.getElementById('loc-pin-emoji');
+  if(pinEmoji) pinEmoji.textContent=pinDraft.emoji||'📍';
+  // Показываем overlay
+  const overlay=document.getElementById('loc-picker-overlay');
+  overlay.classList.add('active');
+  // Обновляем hint текст
+  const hint=document.getElementById('loc-top-hint');
+  if(hint) hint.textContent=lang==='en'?'Drag map to set the meeting spot':'Перетащи карту · место встречи';
+  const confirmBtn=document.querySelector('.loc-confirm-btn');
+  if(confirmBtn) confirmBtn.textContent=lang==='en'?'📍 Set here':'📍 Подтвердить место';
+  const cancelBtn=document.querySelector('.loc-cancel-btn');
+  if(cancelBtn) cancelBtn.textContent=lang==='en'?'← Back':'← Назад';
+  setBackButton(cancelLocationPicker);
+}
+
+function cancelLocationPicker(){
+  document.getElementById('loc-picker-overlay').classList.remove('active');
+  // Возвращаемся к шагу 3 (время)
+  showStep(3);
+  sheet('create',true);
+  setBackButton(closeCreate);
+}
+
+function confirmLocation(){
+  if(!map) return;
+  const c=map.getCenter();
+  pinDraft.manualLat=c.lat;
+  pinDraft.manualLng=c.lng;
+  document.getElementById('loc-picker-overlay').classList.remove('active');
+  // Обновляем loc-source-sub — показываем что место выбрано
+  const locSub=document.getElementById('loc-source-sub');
+  const locIcon=document.getElementById('loc-source-icon');
+  if(locSub) locSub.textContent=t('loc_source_manual');
+  if(locIcon) locIcon.textContent='✅';
+  // Время уже выбрано на предыдущем шаге → сразу публикуем
+  publishPin();
+}
+function getPinCoords(){
+  // Приоритет: ручная локация → GPS → центр города
+  const cc=user&&CITIES[user.city];
+  const lat=pinDraft.manualLat||gpsLat||cc?.lat||50.85;
+  const lng=pinDraft.manualLng||gpsLng||cc?.lng||4.35;
+  return fuzzCoords(lat,lng);
+}
+
+// ── MAP ───────────────────────────────────────────────────
+function initMap(){
+  if(map) return; // уже инициализирована
+  if(typeof L==='undefined'){
+    // Leaflet JS не загрузился с CDN — пробуем ещё раз
+    const s=document.createElement('script');
+    s.src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.min.js';
+    s.onload=()=>setTimeout(initMap,100);
+    document.head.appendChild(s);
+    return;
+  }
+  // Map is full height — pill nav floats above it
+  const mapEl=document.getElementById('map');
+  const mapH=tg?.viewportHeight||window.innerHeight;
+  mapEl.style.cssText=`position:absolute;top:0;left:0;width:100%;height:${Math.max(mapH,300)}px`;
+
+  const cc=CITIES[user?.city]||CITIES['Брюссель'];
+  const center=gpsLat?[gpsLat,gpsLng]:[cc.lat,cc.lng];
+  try{
+    map=L.map('map',{
+      zoomControl:false,       // убираем +/- кнопки — зум пинчем и даблкликом
+      attributionControl:false,
+      doubleClickZoom:true,    // даблклик для зума как в Google Maps
+      zoomSnap:0,
+      zoomDelta:1,
+      wheelPxPerZoomLevel:40,
+      tap:true,
+      tapTolerance:15,
+      bounceAtZoomLimits:false,
+    }).setView(center,14);
+    updateMapTiles();
+    // Нет zoom-контрола — зум через пинч (мобильный) и даблклик (ПК)
+    if(gpsLat) L.circleMarker([gpsLat,gpsLng],{radius:7,color:'#fff',weight:3,fillColor:'#4A90E2',fillOpacity:1}).addTo(map);
+    // Zenly-style cluster group
+    if(typeof L.markerClusterGroup!=='undefined'){
+      clusterGroup=L.markerClusterGroup({
+        maxClusterRadius:65,
+        iconCreateFunction:createClusterIcon,
+        spiderfyOnMaxZoom:true,
+        showCoverageOnHover:false,
+        disableClusteringAtZoom:17,
+        animate:true,
+      });
+      map.addLayer(clusterGroup);
+    }
+    [200,600,1200].forEach(ms=>setTimeout(()=>{if(map)map.invalidateSize()},ms));
+    document.querySelectorAll('.msp-row').forEach((r,i)=>r.classList.toggle('active',i===mapStyle));
+  }catch(e){console.error('Map init error:',e);map=null;}
+}
+
+async function loadPins(){
+  // Если API настроен — грузим реальные данные
+  if(API){
+    // Грузим ВСЕ пины — auth опциональна, сервер сам разберётся
+    const data=await apiCall('GET','/api/pins');
+    if(data?.pins){
+      allPins=data.pins.map(p=>({
+        ...p,
+        id: p.isMine?'mine':p.id,
+        // Координаты приходят с сервера, fallback на CITIES
+        lat: p.lat??CITIES[p.city]?.lat??50.8503,
+        lng: p.lng??CITIES[p.city]?.lng??4.3517,
+        cat: p.category||p.cat||'other',
+        emoji: p.emoji||'✨',
+      }));
+      const mine=allPins.find(p=>p.isMine||p.id==='mine');
+      if(mine){myPin={...mine,id:'mine'};save('myPin',myPin);}
+      renderMapPins();renderList();
+      return;
+    }
+  }
+  // Нет API или сервер не ответил — только своя метка из localStorage
+  allPins=myPin?[{...myPin,id:'mine'}]:[];
+  renderMapPins();renderList();
+}
+
+function createClusterIcon(cluster){
+  const children=cluster.getAllChildMarkers();
+  const n=children.length;
+  const show=Math.min(n,3);
+  const pins=children.slice(0,show).map(m=>m.options._pin||{});
+  const isDark=load('dark')!==false;
+  const circleBg=isDark?'#1E1E2A':'#FFFFFF';
+  const borderCol='rgba(255,255,255,0.9)';
+  const R=34;
+  const offsets=show===1?[[0,0]]:show===2?[[0,6],[17,0]]:[[7,0],[0,14],[19,7]];
+  const cw=show===1?R:show===2?R+17:R+23;
+  const ch=show===1?R:show===2?R+6:R+18;
+  let circles='';
+  pins.forEach((p,i)=>{
+    const col=CAT_COLORS[p.cat]||'#95A5A6';
+    const letter=(p.name||'?').charAt(0).toUpperCase();
+    const [ox,oy]=offsets[i]||[0,0];
+    circles+=`<div style="position:absolute;left:${ox}px;top:${oy}px;width:${R}px;height:${R}px;border-radius:50%;background:${circleBg};border:2.5px solid ${col};box-shadow:0 0 0 2.5px ${col}25,0 2px 8px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:${col}">${letter}</div>`;
+  });
+  const badge=`<div style="position:absolute;bottom:-4px;right:-8px;background:#E8845A;color:#fff;border-radius:10px;font-size:10px;font-weight:800;padding:2px 6px;border:2px solid ${isDark?'#0D0D14':'#fff'};white-space:nowrap;line-height:1.4;box-shadow:0 2px 8px rgba(232,132,90,.4)">${n>99?'99+':n}</div>`;
+  return L.divIcon({
+    html:`<div style="position:relative;width:${cw}px;height:${ch}px;filter:drop-shadow(0 3px 8px rgba(0,0,0,.28))">${circles}${badge}</div>`,
+    className:'',
+    iconSize:[cw+18,ch+18],
+    iconAnchor:[(cw+18)/2,(ch+18)/2]
+  });
+}
+function renderMapPins(){
+  if(clusterGroup) clusterGroup.clearLayers();
+  Object.values(markers).forEach(m=>{try{m.remove()}catch(e){}});
+  markers={};
+  allPins.forEach(pin=>{
+    if(mapFilter!=='all'&&pin.cat!==mapFilter)return;
+    addMapPin(pin);
+  });
+}
+function addMapPin(pin){
+  if(!map) return;
+  const isMine=pin.id==='mine';
+  const colHex=isMine?'#E8845A':(CAT_COLORS[pin.cat]||'#95A5A6');
+  const isDark=load('dark')!==false;
+
+  const sz=isMine?48:42;
+  const tailH=8;
+  const totalH=sz+tailH+2; // extra 2px for glow overflow
+
+  // ── Avatar content: photo → first letter → emoji fallback ──
+  let inner;
+  const photo=isMine?load('photo'):pin.photo;
+  if(photo){
+    inner=`<img src="${photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block">`;
+  } else {
+    // Show first letter of user name — large, bold, category-colored
+    const letter=(pin.name||'?').charAt(0).toUpperCase();
+    const letterColor=isMine?'#fff':colHex;
+    const fontSize=Math.round(sz*0.42);
+    inner=`<span style="font-size:${fontSize}px;font-weight:800;color:${letterColor};line-height:1;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">${letter}</span>`;
+  }
+
+  // ── Circle background: white(light)/dark(dark) for non-mine; gradient for mine ──
+  const circleBg=isMine
+    ?'linear-gradient(135deg,#E8845A 0%,#F4A574 100%)'
+    :(isDark?'#161620':'#FFFFFF');
+
+  // ── Colored ring + glow = Zenly signature ──
+  const glowColor=colHex+'45'; // ~27% opacity
+  const ringSize=isMine?4:3;
+  const circleS=[
+    `width:${sz}px`,`height:${sz}px`,`border-radius:50%`,
+    `background:${circleBg}`,
+    `border:${ringSize}px solid ${colHex}`,
+    `box-shadow:0 0 0 ${isMine?5:3}px ${glowColor},0 4px 18px rgba(0,0,0,.32),0 1px 4px rgba(0,0,0,.18)`,
+    `display:flex`,`align-items:center`,`justify-content:center`,
+    `overflow:hidden`,`flex-shrink:0`,
+  ].join(';');
+
+  // ── Tail ──
+  const tailS=[
+    `width:0`,`height:0`,
+    `border-left:5px solid transparent`,`border-right:5px solid transparent`,
+    `border-top:${tailH}px solid ${colHex}`,
+    `margin-top:-1px`,`flex-shrink:0`,
+  ].join(';');
+
+  const html=`<div style="display:flex;flex-direction:column;align-items:center;cursor:pointer;filter:drop-shadow(0 2px 6px rgba(0,0,0,.28))"><div style="${circleS}">${inner}</div><div style="${tailS}"></div></div>`;
+
+  const m=L.marker([pin.lat,pin.lng],{
+    icon:L.divIcon({
+      html,
+      className:'',
+      iconSize:[sz+10,totalH],    // +10 for glow ring overflow
+      iconAnchor:[(sz+10)/2,totalH]
+    }),
+    _pin:pin,
+    zIndexOffset:isMine?1000:0
+  });
+  m.on('click',()=>openDetailObj(pin));
+  if(isMine||!clusterGroup){m.addTo(map);}else{clusterGroup.addLayer(m);}
+  markers[pin.id]=m;
+}
+function filterMap(cat,el){
+  mapFilter=cat;
+  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+  renderMapPins();
+}
+
+// ── MATCHES ───────────────────────────────────────────────
+function renderList(){renderMatches();} // алиас для switchScreen совместимости
+
+function updateMatchBadge(){
+  const newCount=matches.filter(m=>!m.seen).length;
+  const badge=document.getElementById('match-badge');
+  if(badge){badge.style.display=newCount?'flex':'none';badge.textContent=newCount;}
+}
+
+function openMatchContact(username){
+  if(!username){showToast(t('match_no_username'));return;}
+  const handle=username.replace('@','');
+  if(tg) tg.openLink('https://t.me/'+handle);
+  else window.open('https://t.me/'+handle,'_blank');
+}
+
+function renderMatches(){
+  const scroll=document.getElementById('matches-scroll');
+  const sub=document.getElementById('matches-subtitle');
+  const banner=document.getElementById('my-pin-banner');
+  // Обновляем subtitle
+  const n=matches.length;
+  if(sub) sub.textContent=n===0?'':n===1?t('matches_sub_1'):t('matches_sub_n',n);
+  // Баннер активной метки
+  if(myPin){
+    banner.style.display='flex';
+    document.getElementById('mpb-emoji').textContent=myPin.emoji;
+    const myLabel=t('cat_'+myPin.cat)||myPin.catLabel;
+    const myTime=myPin.timeKey?t(myPin.timeKey):myPin.time;
+    document.getElementById('mpb-title').textContent=t('my_pin_active')+' · '+myLabel;
+    document.getElementById('mpb-sub').textContent=myTime+(myPin.desc?' · '+myPin.desc:'');
+  }else banner.style.display='none';
+  // Пустой стейт
+  if(!matches.length){
+    scroll.innerHTML=`<div class="empty-state"><div class="es-icon">🤝</div><h3>${esc(t('matches_empty'))}</h3><p>${esc(t('matches_empty_sub'))}</p></div>`;
+    return;
+  }
+  scroll.innerHTML='';
+  // Помечаем все как seen при открытии
+  matches.forEach(m=>m.seen=true);
+  save('matches',matches);
+  updateMatchBadge();
+  // Рендерим карточки — сначала новые
+  [...matches].reverse().forEach(m=>{
+    const card=document.createElement('div');
+    card.className='match-card';
+    const initial=esc((m.name||'?').charAt(0));
+    const ph=m.photo?`<img src="${esc(m.photo)}" alt="">`:`${initial}`;
+    const cityDisplay=esc(lang==='en'?(CITIES[m.city]?.en||m.city):m.city);
+    const actLabel=esc(m.activityLabel||t('cat_'+m.activityCat)||'');
+    const hasUsername=!!(m.username);
+    card.innerHTML=`
+      <div class="match-card-top">
+        <div class="match-avatar">${ph}</div>
+        <div class="match-info">
+          <div class="match-name">${esc(m.name||'')}, ${esc(String(m.age||''))}</div>
+          <div class="match-meta">📍 ${cityDisplay}</div>
+        </div>
+      </div>
+      <div class="match-via">
+        <div class="match-via-emoji">${esc(m.activityEmoji||'🤝')}</div>
+        <div class="match-via-text"><div class="match-via-label">${t('match_via')} ${actLabel}</div>${m.activityDesc?`<div style="font-size:12px;color:var(--text2);margin-top:1px">${esc(m.activityDesc)}</div>`:''}</div>
+      </div>
+      <button class="match-tg-btn" id="match-tg-${esc(m.id)}">${hasUsername?t('match_write')+' '+esc(m.username):t('match_no_username')}</button>`;
+    if(hasUsername){
+      card.querySelector('.match-tg-btn')?.addEventListener('click',()=>openMatchContact(m.username));
+    } else {
+      card.querySelector('.match-tg-btn').disabled=true;
+      card.querySelector('.match-tg-btn').style.opacity='0.5';
+    }
+    scroll.appendChild(card);
+  });
+}
+
+// ── REQUESTS ──────────────────────────────────────────────
+function switchReqTab(tab){
+  reqTab=tab;
+  document.getElementById('tab-in').classList.toggle('active',tab==='in');
+  document.getElementById('tab-out').classList.toggle('active',tab==='out');
+  renderRequests();
+}
+
+function renderRequests(){
+  const scroll=document.getElementById('req-scroll');
+  if(reqTab==='in'){
+    // Показываем только pending и declined — принятые ушли в Мэтчи
+    const visible=receivedReqs.filter(r=>r.status!=='accepted');
+    if(!visible.length){
+      const hasAccepted=receivedReqs.some(r=>r.status==='accepted');
+      const icon=hasAccepted?'🤝':'📭';
+      const title=hasAccepted?t('all_in_matches'):t('empty_in');
+      const sub=hasAccepted?t('all_in_matches_sub'):t('empty_in_sub');
+      scroll.innerHTML=`<div class="empty-state"><div class="es-icon">${icon}</div><h3>${esc(title)}</h3><p>${esc(sub)}</p></div>`;
+      return;
+    }
+    scroll.innerHTML='';
+    visible.forEach(r=>{
+      const card=document.createElement('div');card.className='req-card';
+      const fromInitial=esc((r.fromName||'?').charAt(0));
+      const ph=r.photo?`<img src="${esc(r.photo)}" alt="">`:`${fromInitial}`;
+      const fromCityDisplay=esc(lang==='en'?(CITIES[r.fromCity]?.en||r.fromCity):r.fromCity);
+      const actLabel=esc(r.activityCat?t('cat_'+r.activityCat):(r.activityLabel||''));
+      card.innerHTML=`
+        <div class="req-card-top">
+          <div class="req-avatar">${ph}</div>
+          <div><div class="req-name">${esc(r.fromName||'')}, ${esc(String(r.fromAge||''))}</div><div class="req-meta">📍 ${fromCityDisplay}</div></div>
+        </div>
+        <div class="req-activity">${t('join_for')} <b>${esc(r.activityEmoji||'')} ${actLabel}</b>${r.activityDesc?' · '+esc(r.activityDesc):''}</div>
+        ${r.status==='pending'
+          ?`<div class="req-actions"><button class="req-btn accept req-accept-btn">${t('accept')}</button><button class="req-btn decline req-decline-btn">${t('decline')}</button></div>`
+          :`<div class="req-status declined">${t('s_declined')}</div>`
+        }`;
+      if(r.status==='pending'){
+        card.querySelector('.req-accept-btn')?.addEventListener('click',()=>acceptReq(r.id));
+        card.querySelector('.req-decline-btn')?.addEventListener('click',()=>declineReq(r.id));
+      }
+      scroll.appendChild(card);
+    });
+  }else{
+    if(!sentReqs.length){
+      scroll.innerHTML=`<div class="empty-state"><div class="es-icon">📤</div><h3>${t('empty_out')}</h3><p>${t('empty_out_sub')}</p></div>`;return;
+    }
+    scroll.innerHTML='';
+    sentReqs.forEach(r=>{
+      const card=document.createElement('div');card.className='req-card';
+      const toInitial=esc((r.toName||'?').charAt(0));
+      const ph=r.photo?`<img src="${esc(r.photo)}" alt="">`:`${toInitial}`;
+      const toCityDisplay=esc(lang==='en'?(CITIES[r.toCity]?.en||r.toCity):r.toCity);
+      const actLabel=esc(r.activityCat?t('cat_'+r.activityCat):(r.activityLabel||''));
+      const actTime=esc(r.timeKey?t(r.timeKey):(r.time||''));
+      card.innerHTML=`
+        <div class="req-card-top">
+          <div class="req-avatar">${ph}</div>
+          <div><div class="req-name">${esc(r.toName||'')}, ${esc(String(r.toAge||''))}</div><div class="req-meta">📍 ${toCityDisplay}</div></div>
+        </div>
+        <div class="req-activity">${esc(r.activityEmoji||'')} <b>${actLabel}</b>${r.activityDesc?' · '+esc(r.activityDesc):''} · ⏰ ${actTime}</div>
+        ${r.status==='accepted'
+          ?`<div class="req-status accepted">${t('s_accepted')}</div>
+             ${r.toUsername?`<button class="match-tg-btn" style="margin-top:8px" data-uname="${esc(r.toUsername)}">${t('match_write')} ${esc(r.toUsername)}</button>`:''}`
+          :`<div class="req-status sent">${t('s_sent')}</div>`
+        }`;
+      if(r.status==='accepted'&&r.toUsername){
+        card.querySelector('.match-tg-btn')?.addEventListener('click',()=>openMatchContact(r.toUsername));
+      }
+      scroll.appendChild(card);
+    });
+  }
+}
+
+async function acceptReq(id){
+  const r=receivedReqs.find(x=>x.id===id);
+  if(!r)return;
+  r.status='accepted';
+  // Создаём мэтч — теперь оба знают друг о друге
+  const match={
+    id:'match_'+Date.now(),
+    name:r.fromName, age:r.fromAge, city:r.fromCity,
+    username:r.fromUsername||null,
+    photo:r.photo||null,
+    activityEmoji:r.activityEmoji,
+    activityCat:r.activityCat,
+    activityLabel:r.activityLabel||t('cat_'+r.activityCat),
+    activityDesc:r.activityDesc||'',
+    matchedAt:Date.now(), seen:false
+  };
+  matches.push(match);
+  save('matches',matches);
+  save('receivedReqs',receivedReqs);
+  renderRequests();
+  updateReqBadge();
+  updateMatchBadge();
+  showToast(t('accepted_fn',r.fromName));
+  if(tg) tg.HapticFeedback?.notificationOccurred('success');
+  // Persist to server (sends push notification to requester)
+  if(API&&TG_INIT) await apiCall('POST',`/api/requests/${id}/accept`);
+}
+async function declineReq(id){
+  const r=receivedReqs.find(x=>x.id===id);
+  if(!r)return;
+  r.status='declined';
+  save('receivedReqs',receivedReqs);
+  renderRequests();
+  updateReqBadge();
+  showToast(t('declined'));
+  if(API&&TG_INIT) await apiCall('POST',`/api/requests/${id}/decline`);
+}
+function updateReqBadge(){
+  const pending=receivedReqs.filter(r=>r.status==='pending').length;
+  const badge=document.getElementById('req-badge');
+  badge.style.display=pending?'flex':'none';
+  badge.textContent=pending;
+}
+
+// ── DETAIL ────────────────────────────────────────────────
+function openDetailObj(pin){
+  const isMine=pin.id==='mine';
+  const col=CAT_COLORS[pin.cat]||'#95A5A6';
+  // Безопасный аватар: фото или первая буква имени (экранируем имя)
+  const initials=esc(pin.name||'?').charAt(0);
+  const ph=pin.photo?`<img src="${esc(pin.photo)}" style="width:100%;height:100%;object-fit:cover">`:`${initials}`;
+  const detailLabel=esc(t('cat_'+pin.cat)||pin.catLabel||pin.cat);
+  const detailTime=esc(pin.timeKey?t(pin.timeKey):(pin.time||''));
+  const cityDisplay=esc(lang==='en'?(CITIES[pin.city]?.en||pin.city):pin.city);
+  const pinIdStr=String(pin.id); // всегда строка для data-атрибута
+  document.getElementById('detail-body').innerHTML=`
+    <div class="detail-cat-badge" style="background:${col}18;color:${col}">${esc(pin.emoji)} ${detailLabel}</div>
+    <div class="detail-name-row">
+      <div class="detail-avatar">${ph}</div>
+      <div><div class="detail-name">${esc(pin.name||'')}</div><div class="detail-age">${t('age_years',pin.age)} · 📍 ${cityDisplay}</div></div>
+    </div>
+    <div class="detail-meta">
+      <span class="detail-tag">⏰ ${detailTime}</span>
+      <span class="detail-tag">🛡 ${t('addr_hidden')}</span>
+      ${isMine?`<span class="detail-tag" style="background:var(--primary-light);color:var(--primary)">👤 ${t('its_you')}</span>`:''}
+    </div>
+    ${pin.desc
+      ?`<div class="detail-desc">${esc(pin.desc)}</div>`
+      :`<div class="detail-desc" style="color:var(--text2);font-style:italic">${t('no_desc')}</div>`}
+    ${isMine
+      ?`<button class="interest-btn" style="background:var(--primary-light);color:var(--primary)" id="del-pin-btn">${t('del_my_pin')}</button>`
+      :`<button class="interest-btn" id="interest-btn-detail" data-pin-id="${esc(pinIdStr)}">${t('interest_btn')}</button>
+        <div class="report-link" id="report-btn-detail" data-pin-id="${esc(pinIdStr)}">${t('report')}</div>`
+    }`;
+  // Безопасные обработчики — не через inline onclick со строками
+  if(isMine){
+    document.getElementById('del-pin-btn')?.addEventListener('click',()=>{closeDetail();deleteMyPin();});
+  } else {
+    document.getElementById('interest-btn-detail')?.addEventListener('click',()=>sendInterest(pin.id,pin.name));
+    document.getElementById('report-btn-detail')?.addEventListener('click',()=>reportPin(pin.id));
+  }
+  sheet('detail',true);
+  setBackButton(closeDetail);
+}
+function closeDetail(){sheet('detail',false);clearBackButton();}
+function openMyPinDetail(){if(myPin)openDetailObj({...myPin,id:'mine'})}
+
+// ── INTEREST (с debounce и API) ───────────────────────────
+async function sendInterest(pinId,name){
+  // Кнопка теперь имеет id="interest-btn-detail" (один detail открыт одновременно)
+  const btn=document.getElementById('interest-btn-detail');
+  if(!btn||btn.dataset.sending) return; // debounce
+  btn.dataset.sending='1';
+  btn.textContent=t('interest_sending');
+  btn.disabled=true;
+
+  if(API&&TG_INIT){
+    const res=await apiCall('POST','/api/interest',{activity_id:pinId});
+    if(res===null){ // null = ошибка при реальном API
+      btn.textContent=t('interest_btn');
+      btn.disabled=false;
+      delete btn.dataset.sending;
+      showToast(t('api_err'));
+      return;
+    }
+  }
+
+  btn.textContent=t('interest_sent');
+  btn.className='interest-btn sent';
+  btn.disabled=false;
+
+  // String comparison — id может быть number или string
+  const pin=allPins.find(p=>String(p.id)===String(pinId));
+  const sentId='s'+Date.now();
+  if(pin){
+    const sr={
+      id:sentId,toName:name,toAge:pin.age,toCity:pin.city,
+      toUsername:pin.username||null,
+      activityEmoji:pin.emoji,activityCat:pin.cat,
+      activityLabel:t('cat_'+pin.cat)||pin.catLabel,
+      activityDesc:pin.desc,timeKey:pin.timeKey,time:pin.time,
+      status:'sent',photo:null
+    };
+    sentReqs.push(sr);
+    save('sentReqs',sentReqs);
+    // Нет авто-принятия — мэтч только если реальный человек примет заявку
+  }
+  showToast(t('notif_fn',name));
+  if(tg) tg.HapticFeedback?.notificationOccurred('success');
+}
+
+function reportPin(pinId){
+  if(tg) tg.showPopup({title:t('report_title'),message:t('report_msg'),buttons:[
+    {id:'f',type:'default',text:t('r_fake')},
+    {id:'s',type:'default',text:t('r_spam')},
+    {id:'b',type:'destructive',text:t('r_bad')},
+    {id:'c',type:'cancel'}
+  ]},()=>showToast(t('report_sent')));
+  else showToast(t('report_sent'));
+}
+
+// ── CREATE PIN ────────────────────────────────────────────
+function openCreate(){
+  if(!user){showToast(t('enter_name'));return}
+  if(myPin){showToast(t('pin_exists'));return}
+  // Защита от двойного открытия
+  if(document.getElementById('create-sheet').classList.contains('open')) return;
+  pinDraft={};showStep(1);
+  document.getElementById('desc-input').value='';
+  document.getElementById('char-count').textContent='0/200';
+  document.querySelectorAll('.cat-item').forEach(c=>c.classList.remove('selected'));
+  document.querySelectorAll('.time-item').forEach(t=>t.classList.remove('selected'));
+  document.getElementById('custom-time-wrap').classList.remove('show');
+  // Сбрасываем индикатор локации — показываем что выбрано
+  pinDraft.manualLat=null;pinDraft.manualLng=null; // сбрасываем ручную локацию
+  const locSub=document.getElementById('loc-source-sub');
+  const locIcon=document.getElementById('loc-source-icon');
+  if(locSub) locSub.textContent=gpsLat?t('loc_source_gps'):t('loc_source_nogps');
+  if(locIcon) locIcon.textContent='📍';
+  sheet('create',true);
+  setBackButton(closeCreate);
+}
+function closeCreate(){sheet('create',false);clearBackButton();}
+function showStep(n){
+  document.querySelectorAll('.step').forEach((s,i)=>s.classList.toggle('active',i===n-1));
+  document.getElementById('create-title').textContent=[t('create_t1'),t('create_t2'),t('create_t3')][n-1];
+}
+function selectCat(cat,emoji,el){
+  const label=t('cat_'+cat);
+  pinDraft.cat=cat;pinDraft.emoji=emoji;pinDraft.catLabel=label;
+  document.querySelectorAll('.cat-item').forEach(c=>c.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('step-desc-title').textContent=emoji+' '+label;
+  // Показываем поле для ввода кастомного названия только для "Другое"
+  const otherWrap=document.getElementById('other-label-wrap');
+  const otherInp=document.getElementById('other-label-input');
+  if(cat==='other'){
+    otherWrap.style.display='block';
+    setTimeout(()=>otherInp.focus(),300);
+  } else {
+    otherWrap.style.display='none';
+    if(otherInp) otherInp.value='';
+  }
+  setTimeout(()=>showStep(2),170);
+}
+function goToTime(){
+  pinDraft.desc=document.getElementById('desc-input').value.trim();
+  // Если "Другое" — берём кастомное название как catLabel
+  if(pinDraft.cat==='other'){
+    const custom=document.getElementById('other-label-input')?.value.trim();
+    if(custom) pinDraft.catLabel=custom;
+  }
+  showStep(3);
+}
+function selectTime(tv,el){
+  document.querySelectorAll('.time-item').forEach(i=>i.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('custom-time-wrap').classList.remove('show');
+  // tv is now an i18n key (e.g. 't_now') — store key for re-translation, resolved text as fallback
+  pinDraft.timeKey=tv;
+  pinDraft.time=t(tv);
+  // После выбора времени — открываем picker места (шаг "наведения")
+  setTimeout(()=>{
+    sheet('create',false); // закрываем шит
+    if(tg) tg.HapticFeedback?.selectionChanged();
+    enterLocationPicker();
+  },200);
+}
+function showCustomTime(el){
+  document.querySelectorAll('.time-item').forEach(i=>i.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('custom-time-wrap').classList.add('show');
+  document.getElementById('custom-time').focus();
+}
+function fmtTime(inp){let v=inp.value.replace(/\D/g,'');if(v.length>2)v=v.slice(0,2)+':'+v.slice(2,4);inp.value=v}
+function applyCustomTime(){
+  const v=document.getElementById('custom-time').value.trim();
+  if(!/^\d{1,2}:\d{2}$/.test(v)){showToast(t('time_fmt')||'Формат: ЧЧ:ММ');return}
+  pinDraft.time=t('time_today_at')+v;
+  pinDraft.timeKey=null; // кастомное время — не переводится ключом
+  sheet('create',false);
+  enterLocationPicker();
+}
+
+let _pinSuccessTimer=null;
+function showPinSuccess(emoji){
+  const overlay=document.getElementById('pin-success-overlay');
+  const iconEl=document.getElementById('pin-success-icon');
+  const titleEl=document.getElementById('pin-success-title');
+  const subEl=document.getElementById('pin-success-sub');
+  if(iconEl) iconEl.textContent=emoji||'✅';
+  if(titleEl) titleEl.textContent=t('pin_success_title');
+  if(subEl) subEl.textContent=t('pin_success_sub');
+  if(overlay){overlay.classList.add('show');}
+  if(_pinSuccessTimer) clearTimeout(_pinSuccessTimer);
+  _pinSuccessTimer=setTimeout(hidePinSuccess,2000);
+}
+function hidePinSuccess(){
+  const overlay=document.getElementById('pin-success-overlay');
+  if(overlay) overlay.classList.remove('show');
+  if(_pinSuccessTimer){clearTimeout(_pinSuccessTimer);_pinSuccessTimer=null;}
+}
+
+async function publishPin(){
+  if(!pinDraft.cat||!pinDraft.time) return;
+  const coords=getPinCoords();
+  myPin={id:'mine',lat:coords.lat,lng:coords.lng,cat:pinDraft.cat,emoji:pinDraft.emoji,
+    catLabel:pinDraft.catLabel,name:user.name,age:user.age,city:user.city,
+    desc:pinDraft.desc||'',time:pinDraft.time,timeKey:pinDraft.timeKey||null,photo:load('photo')||null,createdAt:Date.now()};
+  save('myPin',myPin);
+
+  // Сохраняем на сервер — без этого другие пользователи не увидят метку
+  if(API&&TG_INIT){
+    const saved=await apiCall('POST','/api/pins',{
+      category:pinDraft.cat,description:pinDraft.desc||'',
+      time_text:pinDraft.time,city:user.city
+    });
+    if(!saved){
+      showToast('⚠️ Метка сохранена только локально — другие не видят. Проверь соединение.');
+    }
+  } else if(API&&!TG_INIT){
+    showToast('⚠️ Нет авторизации Telegram — метка не сохранена на сервер.');
+  }
+
+  allPins=allPins.filter(p=>p.id!=='mine');allPins.unshift(myPin);
+  renderMapPins(); // полный рендер всех меток — надёжнее чем addMapPin напрямую
+  renderList();
+  closeCreate();
+  setTimeout(()=>{
+    showPinSuccess(pinDraft.emoji||'✅');
+    if(map){
+      map.invalidateSize();
+      map.flyTo([coords.lat,coords.lng],15,{animate:true,duration:0.6});
+    }
+  },100);
+  if(tg) tg.HapticFeedback?.notificationOccurred('success');
+}
+
+function deleteMyPin(){
+  if(!myPin) return;
+  doDeletePin(); // удаляем сразу без подтверждения
+}
+async function doDeletePin(){
+  if(API&&TG_INIT) await apiCall('DELETE','/api/pins/mine');
+  allPins=allPins.filter(p=>p.id!=='mine');
+  if(markers['mine']){try{markers['mine'].remove()}catch(e){}delete markers['mine']}
+  myPin=null;localStorage.removeItem('am_myPin');
+  renderList();closeDetail();showToast(t('pin_del'));
+  if(tg) tg.HapticFeedback?.notificationOccurred('warning');
+}
+
+// ── PROFILE PHOTO ─────────────────────────────────────────
+function openPhotoSheet(){
+  document.getElementById('remove-photo-btn').style.display=!!load('photo')?'flex':'none';
+  sheet('photo',true);
+}
+function closePhotoSheet(){sheet('photo',false)}
+function triggerCamera(){closePhotoSheet();document.getElementById('camera-input').click()}
+function triggerGallery(){closePhotoSheet();document.getElementById('gallery-input').click()}
+function handlePhoto(inp){
+  const file=inp.files[0];if(!file)return;
+  inp.value='';
+  // Сжимаем через canvas до 400×400 px, quality 0.75 — экономим localStorage
+  const img=new Image();
+  const objectUrl=URL.createObjectURL(file);
+  img.onload=()=>{
+    URL.revokeObjectURL(objectUrl);
+    const MAX=400;
+    const ratio=Math.min(MAX/img.width,MAX/img.height,1); // не увеличиваем маленькие
+    const canvas=document.createElement('canvas');
+    canvas.width=Math.round(img.width*ratio);
+    canvas.height=Math.round(img.height*ratio);
+    const ctx=canvas.getContext('2d');
+    ctx.drawImage(img,0,0,canvas.width,canvas.height);
+    const b64=canvas.toDataURL('image/jpeg',0.75);
+    try{
+      save('photo',b64);
+      applyPhotoToUI(b64);
+      refreshMinePin();
+      showToast(t('photo_ok'));
+    }catch(err){
+      // QuotaExceededError или другие ошибки хранилища
+      console.warn('Photo save error:',err);
+      showToast(lang==='en'?'Photo too large, try another':'Фото слишком большое, попробуй другое');
+    }
+  };
+  img.onerror=()=>{URL.revokeObjectURL(objectUrl);showToast(lang==='en'?'Failed to load photo':'Ошибка загрузки фото');};
+  img.src=objectUrl;
+}
+function applyPhotoToUI(b64){
+  const av=document.getElementById('prof-avatar-img');
+  const initials=user&&user.name?user.name.charAt(0).toUpperCase():'👤';
+  av.innerHTML=b64?`<img src="${esc(b64)}" alt="">`:`${initials}`;
+}
+function removePhoto(){
+  localStorage.removeItem('am_photo');
+  applyPhotoToUI(null);
+  refreshMinePin(); // убираем фото с метки
+  closePhotoSheet();
+  showToast(t('photo_del'));
+}
+function refreshMinePin(){
+  if(!myPin||!map) return;
+  if(markers['mine']){try{markers['mine'].remove()}catch(e){}delete markers['mine']}
+  addMapPin(myPin);
+}
+
+// ── PROFILE ───────────────────────────────────────────────
+function updateProfileUI(){
+  if(!user)return;
+  applyPhotoToUI(load('photo')||null);
+  document.getElementById('prof-name').textContent=user.name;
+  document.getElementById('prof-age').textContent=t('age_years',user.age);
+  const cityDisplay=lang==='en'?(CITIES[user.city]?.en||user.city):user.city;
+  document.getElementById('prof-city').textContent='📍 '+cityDisplay;
+  document.getElementById('prof-city-val').textContent=cityDisplay;
+  const cityToast=document.querySelector('.city-auto-name');
+  if(cityToast) cityToast.textContent=cityDisplay;
+}
+function changeName(){
+  const n=prompt(t('prof_name')+':',user?.name);
+  if(!n||!n.trim())return;
+  user.name=n.trim().slice(0,30);save('user',user);updateProfileUI();showToast(t('name_ok'));
+}
+function changeCityProfile(){sheet('city',true)}
+function closeCitySheet(){sheet('city',false)}
+function changeCityTo(city){
+  user.city=city;save('user',user);
+  updateProfileUI();loadPins();
+  closeCitySheet();
+  showToast(t('city_prefix')+(lang==='en'?(CITIES[city]?.en||city):city));
+  const cc=CITIES[city];
+  if(map&&cc) map.flyTo([cc.lat,cc.lng],14,{duration:1});
+}
+function changeAge(){
+  const a=prompt(t('prof_age')+':',user?.age);if(!a)return;
+  const n=parseInt(a);
+  if(isNaN(n)||n<18||n>80){showToast(t('age_err'));return}
+  user.age=n;save('user',user);updateProfileUI();showToast(t('age_ok'));
+}
+function requestDeleteAccount(){
+  if(tg) tg.showPopup({title:t('del_acc_title'),message:t('del_acc_msg'),
+    buttons:[{id:'ok',type:'destructive',text:t('write')},{id:'c',type:'cancel'}]},
+    b=>{if(b==='ok')tg.openLink('https://t.me/ActivityMapSupport')});
+  else showToast('Напиши @ActivityMapSupport');
+}
+function openSettings(){
+  sheet('settings',true);
+  document.getElementById('dark-toggle').checked=load('dark')===true;
+}
+function closeSettings(){sheet('settings',false)}
+function openPrivacy(){sheet('privacy',true);setBackButton(closePrivacy);}
+function closePrivacy(){sheet('privacy',false);clearBackButton();}
+
+// ── SHEETS ────────────────────────────────────────────────
+function sheet(name,open){
+  document.getElementById(name+'-backdrop').classList.toggle('open',open);
+  document.getElementById(name+'-sheet').classList.toggle('open',open);
+}
+
+// ── NAV ───────────────────────────────────────────────────
+function switchScreen(name){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById(name+'-screen').classList.add('active');
+  document.getElementById('nav-'+name)?.classList.add('active');
+  if(name==='list') renderList();
+  if(name==='requests'){renderRequests();updateReqBadge();}
+  if(name==='profile') updateProfileUI();
+  if(map&&name==='map') setTimeout(()=>map&&map.invalidateSize(),50);
+  // Закрываем loc-picker если пользователь ушёл с карты
+  if(name!=='map'){
+    const lp=document.getElementById('loc-picker-overlay');
+    if(lp&&lp.classList.contains('active')){lp.classList.remove('active');clearBackButton();}
+  }
+}
+
+// ── TOAST ─────────────────────────────────────────────────
+let toastTimer;
+function showToast(msg){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.classList.add('show');
+  clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),2800);
+}
+</script>
+</body>
+</html>
