@@ -6,7 +6,7 @@ import hashlib, hmac, json, os, time, requests as req_lib
 from urllib.parse import unquote
 from fastapi import FastAPI, HTTPException, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 from typing import Optional
 import sys
@@ -22,7 +22,11 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 # ── Serve frontend ────────────────────────────────────────────
 @app.get("/")
 def serve_index():
-    return FileResponse(os.path.join(os.path.dirname(__file__), "index.html"))
+    response = FileResponse(os.path.join(os.path.dirname(__file__), "index.html"))
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
 
 # ── Telegram initData validation ──────────────────────────────
 def validate_init_data(init_data: str) -> dict:
