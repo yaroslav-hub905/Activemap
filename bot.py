@@ -87,9 +87,9 @@ def time_label(code: str) -> str:
 async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
     user = update.effective_user
     existing = db.get_user(user.id)
-        # Сохраняем/обновляем username (конфиденциально, только в нашей БД)
-        if existing:
-                    db.update_username(user.id, user.username)
+    # Сохраняем/обновляем username (конфиденциально, только в нашей БД)
+    if existing:
+                db.update_username(user.id, user.username)
 
     if existing and not ctx.args:
         await send(update, msg.profile_saved(
