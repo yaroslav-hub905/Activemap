@@ -140,9 +140,9 @@ async def reg_city(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
     await send(update, msg.profile_saved(
         ctx.user_data["reg_name"], ctx.user_data["reg_age"], city
     ))
-        if MINIAPP_URL and update.message:
-                        kb_open = InlineKeyboardMarkup([[InlineKeyboardButton("🗺 Открыть приложение", web_app=WebAppInfo(url=MINIAPP_URL))]])
-                        await update.message.reply_text("🗳️ Теперь нажми кнопку ниже, чтобы открыть карту:", reply_markup=kb_open)
+    if MINIAPP_URL and update.message:
+        kb_open = InlineKeyboardMarkup([[InlineKeyboardButton("🗺 Открыть приложение", web_app=WebAppInfo(url=MINIAPP_URL))]])
+        await update.message.reply_text("🗳️ Теперь нажми кнопку ниже, чтобы открыть карту:", reply_markup=kb_open)
     ctx.user_data.clear()
     return ConversationHandler.END
 
