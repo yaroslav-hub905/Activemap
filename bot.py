@@ -38,7 +38,8 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 BOT_TOKEN   = os.getenv("BOT_TOKEN", "")
-ADMIN_ID    = int(os.getenv("ADMIN_ID", "0"))
+_admin_raw = os.getenv("ADMIN_ID", "0")
+ADMIN_ID    = int(_admin_raw) if _admin_raw.lstrip("-").isdigit() else 0
 MINIAPP_URL = os.getenv("MINIAPP_URL", "https://activemap-production.up.railway.app/")  # URL Mini App
 
 if not BOT_TOKEN:
