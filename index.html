@@ -515,7 +515,7 @@ textarea:focus{border-color:var(--primary)}
 
 /* ── location picker overlay ── */
 /* overlay всегда pointer-events:none — чтобы тачи к карте проходили насквозь */
-.loc-picker-overlay{position:absolute;inset:0;z-index:700;display:none;flex-direction:column;pointer-events:none}
+.loc-picker-overlay{position:absolute;inset:0;z-index:900;display:none;flex-direction:column;pointer-events:none}
 .loc-picker-overlay.active{display:flex}
 /* только панели сверху/снизу получают тачи — карта под ними остаётся draggable */
 .loc-top-bar{pointer-events:auto;background:var(--card);padding:12px 16px;text-align:center;font-size:13px;font-weight:600;color:var(--text2);border-bottom:0.5px solid var(--border);box-shadow:0 2px 8px rgba(0,0,0,.08)}
@@ -525,7 +525,7 @@ textarea:focus{border-color:var(--primary)}
 .lc-horiz{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:44px;height:2px;background:var(--primary);border-radius:1px;box-shadow:0 0 6px rgba(232,132,90,.5)}
 .lc-dot{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:12px;height:12px;border-radius:50%;background:var(--primary);border:2.5px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.3)}
 .lc-pin{position:absolute;left:50%;bottom:50%;transform:translateX(-50%);font-size:32px;line-height:1;filter:drop-shadow(0 2px 4px rgba(0,0,0,.3))}
-.loc-bottom-bar{pointer-events:auto;background:var(--card);padding:12px 16px 24px;display:flex;align-items:center;gap:10px;border-top:0.5px solid var(--border);box-shadow:0 -2px 12px rgba(0,0,0,.08)}
+.loc-bottom-bar{pointer-events:auto;background:var(--card);padding:12px 16px 24px;display:flex;align-items:center;gap:10px;border-top:0.5px solid var(--border);box-shadow:0 -2px 12px rgba(0,0,0,.08);margin-bottom:calc(var(--nav-h) + var(--safe-b) + 14px)}
 .loc-cancel-btn{flex:0 0 auto;padding:11px 18px;border-radius:12px;border:1.5px solid var(--border);background:var(--card);color:var(--text2);font-size:14px;font-weight:600;cursor:pointer;font-family:inherit}
 .loc-confirm-btn{flex:1;padding:13px;border-radius:12px;border:none;background:var(--primary);color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:0 4px 14px rgba(232,132,90,.4)}
 .loc-confirm-btn:active{opacity:.9}
@@ -1377,6 +1377,8 @@ let receivedReqs=[], sentReqs=[], matches=[];
 const _UID=String(window.Telegram?.WebApp?.initDataUnsafe?.user?.id||'demo');
 function load(k){try{return JSON.parse(localStorage.getItem('am_'+_UID+'_'+k))}catch{return null}}
 function save(k,v){try{localStorage.setItem('am_'+_UID+'_'+k,JSON.stringify(v))}catch(e){console.warn('Storage error:',k,e);}}
+  // -- ONE-TIME CLEANUP: remove stale/demo match & request cache that isn't from real users --
+  if(!localStorage.getItem('am_'+_UID+'_cache_reset_v1')){localStorage.removeItem('am_'+_UID+'_matches');localStorage.removeItem('am_'+_UID+'_receivedReqs');localStorage.removeItem('am_'+_UID+'_sentReqs');localStorage.setItem('am_'+_UID+'_cache_reset_v1','1');}
 
 // ── HTML ESCAPE (XSS prevention) ──────────────────────────
 function esc(s){
