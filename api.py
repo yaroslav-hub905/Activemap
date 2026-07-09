@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 import database as db
 
 BOT_TOKEN = os.getenv("BOT_TOKEN", "")
-TG_API    = f"https://api.telegram.org/bot{BOT_TOKEN}"
+TG_API = f"https://api.telegram.org/bot{BOT_TOKEN}"
 
 app = FastAPI(title="ActivityMap API", docs_url=None)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -41,7 +41,7 @@ def validate_init_data(init_data: str) -> dict:
             params[unquote(k)] = unquote(v)
     received_hash = params.pop("hash", "")
     data_check = "\n".join(f"{k}={v}" for k, v in sorted(params.items()))
-    secret  = hmac.new(b"WebAppData", BOT_TOKEN.encode(), hashlib.sha256).digest()
+    secret = hmac.new(b"WebAppData", BOT_TOKEN.encode(), hashlib.sha256).digest()
     calc_hash = hmac.new(secret, data_check.encode(), hashlib.sha256).hexdigest()
     if calc_hash != received_hash:
         raise HTTPException(401, "Invalid signature")
@@ -85,9 +85,9 @@ def send_tg_message(chat_id: int, text: str):
 
 # ── Category maps ─────────────────────────────────────────────
 EMOJIS = {'coffee':'☕','walk':'🚶','bar':'🍺','sport':'⚽',
-          'language':'💬','culture':'🎭','food':'🍜','work':'💻','other':'✨'}
+    'language':'💬','culture':'🎭','food':'🍜','work':'💻','other':'✨'}
 LABELS = {'coffee':'Кофе / Чай','walk':'Прогулка','bar':'Бар / Вечер','sport':'Спорт',
-          'language':'Языки','culture':'Культура','food':'Еда','work':'Коворкинг','other':'Другое'}
+    'language':'Языки','culture':'Культура','food':'Еда','work':'Коворкинг','other':'Другое'}
 
 # ── Models ────────────────────────────────────────────────────
 class RegisterBody(BaseModel):
@@ -109,15 +109,18 @@ class PinBody(BaseModel):
 class InterestBody(BaseModel):
     activity_id: int
 
+class PhotoBody(BaseModel):
+    photo: Optional[str] = None
+
 # ── Auth / Register ───────────────────────────────────────────
 @app.post("/api/auth")
 def auth(body: RegisterBody):
-    tg_user  = validate_init_data(body.init_data)
-    tg_id    = tg_user["id"]
+    tg_user = validate_init_data(body.init_data)
+    tg_id = tg_user["id"]
     username = tg_user.get("username", "")
-    name     = body.name.strip()[:30]
-    age      = max(18, min(80, body.age)) if body.age is not None else 18
-    city     = body.city.strip()[:50]
+    name = body.name.strip()[:30]
+    age = max(18, min(80, body.age)) if body.age is not None else 18
+    city = body.city.strip()[:50]
     if not name or not city:
         raise HTTPException(400, "name and city required")
     db.upsert_user(tg_id, username, name, age, city, body.lat, body.lng)
@@ -130,9 +133,23 @@ def get_me(request: Request, x_init_data: str = Header(None)):
         row = conn.execute("SELECT * FROM users WHERE tg_id=?", (tg_user["id"],)).fetchone()
     if not row:
         raise HTTPException(404, "User not found")
-    user     = dict(row)
+    user = dict(row)
     activity = db.get_active_activity(user["tg_id"])
     return {"user": user, "myPin": activity}
+
+# ── Photo ─────────────────────────────────────────────────────
+@app.post("/api/photo")
+def set_photo(body: PhotoBody, x_init_data: str = Header(None)):
+    tg_user = get_tg_user(x_init_data)
+    with db.get_db() as conn:
+        me = conn.execute("SELECT * FROM users WHERE tg_id=?", (tg_user["id"],)).fetchone()
+    if not me:
+        raise HTTPException(404, "Register first")
+    # Guard against abuse via oversized payloads (~700KB base64 limit)
+    if body.photo and len(body.photo) > 700_000:
+        raise HTTPException(413, "Photo too large")
+    db.update_user_photo(tg_user["id"], body.photo)
+    return {"ok": True}
 
 # ── Pins ──────────────────────────────────────────────────────
 @app.get("/api/pins")
@@ -142,6 +159,8 @@ def get_pins(x_init_data: str = Header(None)):
     без фильтра по городу — люди из разных городов видят друг друга.
     initData опционален: если его нет или он невалиден, метки всё равно
     отдаются (аутентификация нужна только чтобы пометить isMine).
+    Приватность: наружу отдаются только поля, нужные карте/UI — реальный
+    Telegram ID и username пользователя НЕ включаются в публичный ответ.
     """
     tg_user = get_tg_user_optional(x_init_data)
     me = None
@@ -153,11 +172,24 @@ def get_pins(x_init_data: str = Header(None)):
     for a in activities:
         row = dict(a)
         cat = row.get("category", "other")
+        is_mine = bool(me and row["user_id"] == me["tg_id"])
         result.append({
-            **row,
-            "emoji":    EMOJIS.get(cat, "✨"),
+            "id": row["id"],
+            "category": cat,
+            "description": row.get("description", ""),
+            "time_text": row.get("time_text"),
+            "city": row.get("city"),
+            "lat": row.get("lat"),
+            "lng": row.get("lng"),
+            "created_at": row.get("created_at"),
+            "expires_at": row.get("expires_at"),
+            "name": row.get("name"),
+            "age": row.get("age"),
+            "photo": row.get("photo"),
+            "interest_count": row.get("interest_count", 0),
+            "emoji": EMOJIS.get(cat, "✨"),
             "catLabel": LABELS.get(cat, "Другое"),
-            "isMine":   bool(me and row["user_id"] == me["tg_id"])
+            "isMine": is_mine,
         })
     return {"pins": result}
 
@@ -209,10 +241,10 @@ def express_interest(body: InterestBody, x_init_data: str = Header(None)):
         ).fetchone()
     if row and row["owner_tg_id"] and row["owner_tg_id"] != tg_user["id"]:
         row_d = dict(row)
-        cat   = row_d.get("category", "other")
+        cat = row_d.get("category", "other")
         emoji = EMOJIS.get(cat, "✨")
         label = LABELS.get(cat, "Другое")
-        desc  = row_d.get("description") or ""
+        desc = row_d.get("description") or ""
         msg = (
             f"👋 <b>{me['name']}</b> ({me['city']}) хочет присоединиться к твоей активности!\n\n"
             f"{emoji} <b>{label}</b>" + (f" · {desc}" if desc else "") +
@@ -240,7 +272,6 @@ def get_requests(x_init_data: str = Header(None)):
 
     return data
 
-
 @app.post("/api/requests/{interest_id}/accept")
 def accept_request(interest_id: int, x_init_data: str = Header(None)):
     tg_user = get_tg_user(x_init_data)
@@ -265,7 +296,7 @@ def accept_request(interest_id: int, x_init_data: str = Header(None)):
         """, (interest_id,)).fetchone()
 
     if row:
-        cat   = row["category"] or "other"
+        cat = row["category"] or "other"
         emoji = EMOJIS.get(cat, "✨")
         label = LABELS.get(cat, "Другое")
         msg = (
@@ -276,7 +307,6 @@ def accept_request(interest_id: int, x_init_data: str = Header(None)):
         send_tg_message(row["from_user"], msg)
 
     return {"ok": True}
-
 
 @app.post("/api/requests/{interest_id}/decline")
 def decline_request(interest_id: int, x_init_data: str = Header(None)):
@@ -291,7 +321,6 @@ def decline_request(interest_id: int, x_init_data: str = Header(None)):
         raise HTTPException(404, "Interest not found or not yours")
 
     return {"ok": True}
-
 
 # ── Health ────────────────────────────────────────────────────
 @app.get("/health")
