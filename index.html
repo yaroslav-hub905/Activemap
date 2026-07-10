@@ -1579,7 +1579,7 @@ function checkPinExpiry(){
   const age=Date.now()-myPin.createdAt;
   if(age>12*60*60*1000){
     myPin=null;
-    localStorage.removeItem('am_myPin');
+    localStorage.removeItem('am_'+_UID+'_myPin');
     setTimeout(()=>showToast(t('pin_expired')),600);
   }
 }
@@ -1597,11 +1597,11 @@ async function syncFromServer(){
         age:  u.age,
         city: u.city,
         username: u.username?('@'+u.username):null,
-        photo: user?.photo||null  // photo stays local (not stored on server)
+        photo: u.photo||null
       };
       save('user',user);
 
-      if(meData.myPin){
+      if(u.photo){save('photo',u.photo);applyPhotoToUI(u.photo);}else{localStorage.removeItem('am_'+_UID+'_photo');applyPhotoToUI(null);}if(!meData.myPin){myPin=null;localStorage.removeItem('am_'+_UID+'_myPin');}if(meData.myPin){
         const p=meData.myPin;
         const cat=p.category||'other';
         myPin={
@@ -1611,7 +1611,7 @@ async function syncFromServer(){
           cat, emoji:p.emoji||'✨', catLabel:p.catLabel||t('cat_'+cat),
           name:user.name, age:user.age, city:user.city,
           desc:p.description||'', time:p.time_text, timeKey:null,
-          createdAt:new Date(p.created_at||Date.now()).getTime()
+          createdAt:new Date(p.created_at||Date.now()).getTime(),photo:u.photo||null
         };
         save('myPin',myPin);
       }
@@ -2490,7 +2490,7 @@ async function doDeletePin(){
   if(API&&TG_INIT) await apiCall('DELETE','/api/pins/mine');
   allPins=allPins.filter(p=>p.id!=='mine');
   if(markers['mine']){try{markers['mine'].remove()}catch(e){}delete markers['mine']}
-  myPin=null;localStorage.removeItem('am_myPin');
+  myPin=null;localStorage.removeItem('am_'+_UID+'_myPin');
   renderList();closeDetail();showToast(t('pin_del'));
   if(tg) tg.HapticFeedback?.notificationOccurred('warning');
 }
@@ -2520,7 +2520,7 @@ function handlePhoto(inp){
     ctx.drawImage(img,0,0,canvas.width,canvas.height);
     const b64=canvas.toDataURL('image/jpeg',0.75);
     try{
-      save('photo',b64);
+      save('photo',b64);if(API&&TG_INIT) apiCall('POST','/api/photo',{photo:b64});
       applyPhotoToUI(b64);
       refreshMinePin();
       showToast(t('photo_ok'));
@@ -2539,7 +2539,7 @@ function applyPhotoToUI(b64){
   av.innerHTML=b64?`<img src="${esc(b64)}" alt="">`:`${initials}`;
 }
 function removePhoto(){
-  localStorage.removeItem('am_photo');
+  localStorage.removeItem('am_'+_UID+'_photo');if(API&&TG_INIT) apiCall('POST','/api/photo',{photo:null});
   applyPhotoToUI(null);
   refreshMinePin(); // убираем фото с метки
   closePhotoSheet();
@@ -2613,7 +2613,7 @@ function switchScreen(name){
   if(name==='list') renderList();
   if(name==='requests'){renderRequests();updateReqBadge();}
   if(name==='profile') updateProfileUI();
-  if(map&&name==='map') setTimeout(()=>map&&map.invalidateSize(),50);
+  if(map&&name==='map') setTimeout(()=>map&&map.invalidateSize(),50);if((name==='list'||name==='requests')&&API&&TG_INIT){syncFromServer().then(()=>{if(name==='list') renderList();if(name==='requests'){renderRequests();updateReqBadge();}updateMatchBadge();});}
   // Закрываем loc-picker если пользователь ушёл с карты
   if(name!=='map'){
     const lp=document.getElementById('loc-picker-overlay');
