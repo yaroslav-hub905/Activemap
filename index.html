@@ -1606,8 +1606,8 @@ async function syncFromServer(){
         const cat=p.category||'other';
         myPin={
           id:'mine',
-          lat:gpsLat||CITIES[user.city]?.lat,
-          lng:gpsLng||CITIES[user.city]?.lng,
+          lat:p.lat||gpsLat||CITIES[user.city]?.lat,
+          lng:p.lng||gpsLng||CITIES[user.city]?.lng,
           cat, emoji:p.emoji||'✨', catLabel:p.catLabel||t('cat_'+cat),
           name:user.name, age:user.age, city:user.city,
           desc:p.description||'', time:p.time_text, timeKey:null,
@@ -2459,7 +2459,7 @@ async function publishPin(){
   if(API&&TG_INIT){
     const saved=await apiCall('POST','/api/pins',{
       category:pinDraft.cat,description:pinDraft.desc||'',
-      time_text:pinDraft.time,city:user.city
+      time_text:pinDraft.time,city:user.city,lat:coords.lat,lng:coords.lng
     });
     if(!saved){
       showToast('⚠️ Метка сохранена только локально — другие не видят. Проверь соединение.');
