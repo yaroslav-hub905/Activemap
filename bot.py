@@ -553,19 +553,19 @@ def main() -> None:
     # ---- Команды в меню бота ----
     async def post_init(application: Application) -> None:
         commands = [
-            BotCommand("post",   "Создать метку активности"),
-            BotCommand("browse", "Смотреть активности в городе"),
-            BotCommand("mypost", "Моя текущая метка"),
-            BotCommand("city",   "Сменить город"),
-            BotCommand("delete", "Удалить метку"),
+            
+            
+            
+            
+            
             BotCommand("help",   "Помощь"),
         ]
-        if MINIAPP_URL:
-            commands.insert(0, BotCommand("app", "Открыть приложение 🗺"))
+        
+            
         await application.bot.set_my_commands(commands)
 
         # Кнопка Menu → открывает Mini App
-        if MINIAPP_URL:
+        
             await application.bot.set_chat_menu_button(
                 menu_button=MenuButtonWebApp(
                     text="Открыть карту",
