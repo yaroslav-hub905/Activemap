@@ -7,11 +7,10 @@ import sqlite3
 
 def welcome(name: str) -> str:
     return (
-        f"👋 Привет, {name}!\n\n"
-        "Я — *ActivityMap Bot*.\n\n"
-        "Здесь ты можешь найти людей для совместных активностей прямо сегодня: "
+        f"👋 Привет, {name}! Я — *ActivityMap*.\n\n"
+        "Помогу найти компанию для встречи сегодня: "
         "кофе, прогулка, бар, спорт, языковой обмен и многое другое.\n\n"
-        "Никаких знакомств ради романтики — только живое общение и реальные встречи."
+        "Как тебя зовут?"
     )
 
 
@@ -34,13 +33,8 @@ def profile_saved(name: str, age: int, city: str) -> str:
     return (
         f"✅ Профиль сохранён!\n\n"
         f"👤 *{name}*, {age} лет\n"
-        f"📍 *{city}*\n\n"
-        f"Теперь ты можешь:\n"
-        f"• /post — создать метку активности\n"
-        f"• /browse — смотреть активности в твоём городе\n"
-        f"• /mypost — моя текущая метка\n"
-        f"• /help — помощь"
-    )
+        f"📍 *{city}*"
+        )
 
 
 def ask_category() -> str:
@@ -73,9 +67,7 @@ def activity_created(cat: str, time_text: str, city: str, act_id: int) -> str:
         f"{emoji} *{label}* · {time_text}\n"
         f"📍 {city}\n\n"
         f"Люди в твоём городе уже видят тебя.\n"
-        f"Метка автоматически удалится через {PIN_LIFETIME_HOURS} часов.\n\n"
-        f"• /mypost — посмотреть свою метку\n"
-        f"• /browse — смотреть другие активности"
+        f"Метка автоматически удалится через {PIN_LIFETIME_HOURS} часов."
     )
 
 
