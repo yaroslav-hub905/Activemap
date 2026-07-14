@@ -93,17 +93,13 @@ async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
                 db.update_username(user.id, user.username)
 
     if existing and not ctx.args:
+        kb_open = InlineKeyboardMarkup([[InlineKeyboardButton("🗺 Открыть карту", web_app=WebAppInfo(url=MINIAPP_URL))]]) if MINIAPP_URL else None
         await send(update, msg.profile_saved(
             existing["name"], existing["age"], existing["city"]
-        ))
-        if MINIAPP_URL and update.message:
-                        kb_open = InlineKeyboardMarkup([[InlineKeyboardButton("🗺 Открыть приложение", web_app=WebAppInfo(url=MINIAPP_URL))]])
-                        await update.message.reply_text("👇 Нажми кнопку ниже, чтобы открыть карту:", reply_markup=kb_open)
+        ), reply_markup=kb_open)
         return ConversationHandler.END
-
     await send(update, msg.welcome(user.first_name or "друг"))
-    await send(update, msg.ask_name())    
-    return REG_NAME
+        return REG_NAME
 
 
 async def reg_name(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
@@ -138,14 +134,12 @@ async def reg_city(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
         age      = ctx.user_data["reg_age"],
         city     = city,
     )
-    await send(update, msg.profile_saved(
-        ctx.user_data["reg_name"], ctx.user_data["reg_age"], city
-    ))
-    if MINIAPP_URL and update.message:
-        kb_open = InlineKeyboardMarkup([[InlineKeyboardButton("🗺 Открыть приложение", web_app=WebAppInfo(url=MINIAPP_URL))]])
-        await update.message.reply_text("🗳️ Теперь нажми кнопку ниже, чтобы открыть карту:", reply_markup=kb_open)
-    ctx.user_data.clear()
-    return ConversationHandler.END
+        kb_open = InlineKeyboardMarkup([[InlineKeyboardButton("🗺 Открыть карту", web_app=WebAppInfo(url=MINIAPP_URL))]]) if MINIAPP_URL else None
+        await send(update, msg.profile_saved(
+            ctx.user_data["reg_name"], ctx.user_data["reg_age"], city
+        ), reply_markup=kb_open)
+        ctx.user_data.clear()   
+        return ConversationHandler.END
 
 
 # ── /post — создание метки ───────────────────────────────────
