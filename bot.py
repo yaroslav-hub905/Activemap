@@ -135,11 +135,11 @@ async def reg_city(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
         city     = city,
     )
     kb_open = InlineKeyboardMarkup([[InlineKeyboardButton("🗺 Открыть карту", web_app=WebAppInfo(url=MINIAPP_URL))]]) if MINIAPP_URL else None
-        await send(update, msg.profile_saved(
-            ctx.user_data["reg_name"], ctx.user_data["reg_age"], city
-        ), reply_markup=kb_open)
-        ctx.user_data.clear()   
-        return ConversationHandler.END
+    await send(update, msg.profile_saved(
+        ctx.user_data["reg_name"], ctx.user_data["reg_age"], city
+    ), reply_markup=kb_open)
+    ctx.user_data.clear()   
+    return ConversationHandler.END
 
 
 # ── /post — создание метки ───────────────────────────────────
