@@ -90,7 +90,7 @@ async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
     existing = db.get_user(user.id)
     # Сохраняем/обновляем username (конфиденциально, только в нашей БД)
     if existing:
-                db.update_username(user.id, user.username)
+        db.update_username(user.id, user.username)
 
     if existing and not ctx.args:
         kb_open = InlineKeyboardMarkup([[InlineKeyboardButton("🗺 Открыть карту", web_app=WebAppInfo(url=MINIAPP_URL))]]) if MINIAPP_URL else None
@@ -99,7 +99,7 @@ async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
         ), reply_markup=kb_open)
         return ConversationHandler.END
     await send(update, msg.welcome(user.first_name or "друг"))
-        return REG_NAME
+    return REG_NAME
 
 
 async def reg_name(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
