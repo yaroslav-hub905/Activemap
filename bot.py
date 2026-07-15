@@ -560,7 +560,7 @@ def main() -> None:
 
         # Кнопка Menu → открывает Mini App
         
-            await application.bot.set_chat_menu_button(
+        await application.bot.set_chat_menu_button(
                 menu_button=MenuButtonWebApp(
                     text="Открыть карту",
                     web_app=WebAppInfo(url=MINIAPP_URL),
