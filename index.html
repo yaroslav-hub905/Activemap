@@ -2067,7 +2067,7 @@ function updateMatchBadge(){
 function openMatchContact(username){
   if(!username){showToast(t('match_no_username'));return;}
   const handle=username.replace('@','');
-  if(tg) tg.openLink('https://t.me/'+handle);
+  if(tg) tg.openTelegramLink('https://t.me/'+handle);
   else window.open('https://t.me/'+handle,'_blank');
 }
 
@@ -2210,7 +2210,7 @@ async function acceptReq(id){
   r.status='accepted';
   // Создаём мэтч — теперь оба знают друг о друге
   const match={
-    id:'match_'+Date.now(),
+    id:'smatch_'+id,
     name:r.fromName, age:r.fromAge, city:r.fromCity,
     username:r.fromUsername||null,
     photo:r.photo||null,
