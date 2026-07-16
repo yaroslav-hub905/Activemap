@@ -1,5 +1,5 @@
 """
-ActivityMap Mini App — FastAPI Backend
+YAMA Mini App — FastAPI Backend
 Деплой: Railway (тот же проект что и бот, или отдельный)
 """
 import hashlib, hmac, json, os, time, requests as req_lib
@@ -15,8 +15,9 @@ import database as db
 
 BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 TG_API = f"https://api.telegram.org/bot{BOT_TOKEN}"
+MINIAPP_URL = os.getenv("MINIAPP_URL", "https://activemap-production.up.railway.app/")
 
-app = FastAPI(title="ActivityMap API", docs_url=None)
+app = FastAPI(title="YAMA API", docs_url=None)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 # ── Serve frontend ────────────────────────────────────────────
@@ -70,14 +71,21 @@ def get_tg_user_optional(x_init_data: str = Header(None)):
         return None
 
 # ── Telegram push helper ──────────────────────────────────────
-def send_tg_message(chat_id: int, text: str):
+def send_tg_message(chat_id: int, text: str, with_button: bool = True):
     """Отправляет push через бота. Ошибки не блокируют основной запрос."""
     if not BOT_TOKEN or not chat_id:
         return
+    payload = {"chat_id": chat_id, "text": text, "parse_mode": "HTML"}
+    if with_button:
+        payload["reply_markup"] = {
+            "inline_keyboard": [[
+                {"text": "🗺 Открыть YAMA", "web_app": {"url": MINIAPP_URL}}
+            ]]
+        }
     try:
         req_lib.post(
             f"{TG_API}/sendMessage",
-            json={"chat_id": chat_id, "text": text, "parse_mode": "HTML"},
+            json=payload,
             timeout=4
         )
     except Exception:
@@ -246,9 +254,9 @@ def express_interest(body: InterestBody, x_init_data: str = Header(None)):
         label = LABELS.get(cat, "Другое")
         desc = row_d.get("description") or ""
         msg = (
-            f"👋 <b>{me['name']}</b> ({me['city']}) хочет присоединиться к твоей активности!\n\n"
+            f"👀 <b>Кто-то хочет присоединиться к тебе!</b>\n\n"
             f"{emoji} <b>{label}</b>" + (f" · {desc}" if desc else "") +
-            "\n\nОткрой ActivityMap → Заявки, чтобы принять или отклонить."
+            "\n\nОткрой YAMA, чтобы посмотреть заявку и ответить 👇"
         )
         send_tg_message(row["owner_tg_id"], msg)
 
@@ -300,9 +308,9 @@ def accept_request(interest_id: int, x_init_data: str = Header(None)):
         emoji = EMOJIS.get(cat, "✨")
         label = LABELS.get(cat, "Другое")
         msg = (
-            f"✅ <b>{me['name']}</b> принял твою заявку!\n\n"
+            f"🎉 <b>Мэтч!</b> {me['name']} принял(а) твою заявку\n\n"
             f"{emoji} <b>{label}</b>\n\n"
-            f"Открой ActivityMap → Мэтчи, чтобы написать им."
+            f"Открой YAMA → Мэтчи, чтобы написать 💬"
         )
         send_tg_message(row["from_user"], msg)
 
