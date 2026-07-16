@@ -1,7 +1,7 @@
 """
 ActivityMap Bot — Inline keyboards
 """
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from database import CATEGORIES
 
 
@@ -105,3 +105,36 @@ def kb_confirm_delete(activity_id: int) -> InlineKeyboardMarkup:
         InlineKeyboardButton("✓ Да, удалить", callback_data=f"delete_ok:{activity_id}"),
         InlineKeyboardButton("Отмена",         callback_data="delete_cancel"),
     ]])
+
+
+def kb_belgium_cities(prefix: str = "regcity") -> InlineKeyboardMarkup:
+    """Клавиатура выбора города Бельгии."""
+    from database import BELGIUM_CITIES
+    buttons = []
+    row = []
+    for city in BELGIUM_CITIES:
+        row.append(InlineKeyboardButton(city, callback_data=f"{prefix}:{city}"))
+        if len(row) == 2:
+            buttons.append(row)
+            row = []
+    if row:
+        buttons.append(row)
+    buttons.append([InlineKeyboardButton("✏️ Другой город", callback_data=f"{prefix}:other")])
+    return InlineKeyboardMarkup(buttons)
+
+def kb_main_menu(miniapp_url: str = "") -> InlineKeyboardMarkup:
+    """Главное меню после сохранения профиля."""
+    rows = [[InlineKeyboardButton("✏️ Изменить данные", callback_data="menu:editdata")]]
+    if miniapp_url:
+        rows.append([InlineKeyboardButton("🧭 Найти людей", web_app=WebAppInfo(url=miniapp_url))])
+    rows.append([InlineKeyboardButton("🗑 Деактивировать все метки", callback_data="menu:deactivate")])
+    return InlineKeyboardMarkup(rows)
+
+def kb_edit_data_menu() -> InlineKeyboardMarkup:
+    """Подменю выбора, что именно изменить."""
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("👤 Имя", callback_data="editdata:name")],
+        [InlineKeyboardButton("🎂 Возраст", callback_data="editdata:age")],
+        [InlineKeyboardButton("📍 Город", callback_data="editdata:city")],
+        [InlineKeyboardButton("⬅️ Назад", callback_data="menu:back")],
+    ])
