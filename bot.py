@@ -1,3 +1,4 @@
+
 """
 ActivityMap Bot — Main entry point
 Telegram-бот для валидации MVP: поиск людей для совместных активностей
