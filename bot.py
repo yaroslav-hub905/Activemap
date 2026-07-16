@@ -475,7 +475,7 @@ async def editdata_city_button(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -
         return EDIT_INPUT
 
     db.update_user_city(tg_id, code)
-        await query.edit_message_text(msg.data_updated("Город", code), parse_mode=ParseMode.MARKDOWN, reply_markup=kb.kb_main_menu(MINIAPP_URL))
+    await query.edit_message_text(msg.data_updated("Город", code), parse_mode=ParseMode.MARKDOWN, reply_markup=kb.kb_main_menu(MINIAPP_URL))
     ctx.user_data.pop("edit_field", None)
     return ConversationHandler.END
 
