@@ -321,3 +321,23 @@ def cleanup_expired() -> int:
             WHERE is_active = 1 AND expires_at < datetime('now')
         """)
         return cur.rowcount
+
+
+BELGIUM_CITIES = ["Брюссель", "Антверпен", "Гент", "Брюгге", "Льеж", "Лёвен", "Намюр", "Шарлеруа"]
+
+def update_user_name(tg_id: int, name: str) -> None:
+    with get_db() as db:
+        db.execute("UPDATE users SET name = ? WHERE tg_id = ?", (name, tg_id))
+
+def update_user_age(tg_id: int, age: int) -> None:
+    with get_db() as db:
+        db.execute("UPDATE users SET age = ? WHERE tg_id = ?", (age, tg_id))
+
+def deactivate_all_activities(user_id: int) -> int:
+    """Деактивировать все активные метки пользователя."""
+    with get_db() as db:
+        cur = db.execute("""
+            UPDATE activities SET is_active = 0
+            WHERE user_id = ? AND is_active = 1
+        """, (user_id,))
+        return cur.rowcount
