@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>ActivityMap</title>
+<title>YAMA</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
@@ -545,7 +545,7 @@ textarea:focus{border-color:var(--primary)}
 <!-- ══ WELCOME ══════════════════════════════════════════════════ -->
 <div class="overlay" id="geo-screen">
   <div class="welcome-body">
-    <div class="welcome-title">ActivityMap</div>
+    <div class="welcome-title">YAMA</div>
     <div class="welcome-sub">Найди русскоязычных людей рядом для совместных активностей в Бельгии</div>
     <div class="welcome-features">
       <div class="welcome-feat">
@@ -571,7 +571,7 @@ textarea:focus{border-color:var(--primary)}
   <div class="reg-body">
     <div class="reg-logo">🗺️</div>
     <div class="reg-title">Добро пожаловать!</div>
-    <div class="reg-sub">ActivityMap работает в 4 городах Бельгии — найди компанию рядом прямо сегодня.</div>
+    <div class="reg-sub">YAMA работает в 4 городах Бельгии — найди компанию рядом прямо сегодня.</div>
 
     <div class="field-label" id="reg-lbl-name">Имя</div>
     <input class="field-input" id="reg-name" placeholder="Как тебя зовут?" maxlength="30" autocomplete="off">
@@ -736,9 +736,9 @@ textarea:focus{border-color:var(--primary)}
     </div>
 
     <div class="section-label" id="prof-sec-about">О приложении</div>
-    <div class="setting-row" style="border-radius:14px 14px 0 0" onclick="showToast('ActivityMap v1.0 — Бельгия 🇧🇪')">
+    <div class="setting-row" style="border-radius:14px 14px 0 0" onclick="showToast('YAMA v1.0 — Бельгия 🇧🇪')">
       <div class="setting-icon">ℹ️</div>
-      <div class="setting-label" id="prof-lbl-about">ActivityMap v1.0</div>
+      <div class="setting-label" id="prof-lbl-about">YAMA v1.0</div>
     </div>
     <div class="setting-row" style="border-radius:0 0 14px 14px" onclick="openPrivacy()">
       <div class="setting-icon">🔒</div>
@@ -961,7 +961,7 @@ textarea:focus{border-color:var(--primary)}
     <div class="settings-divider" id="s-div-about">О приложении</div>
     <div class="toggle-row" style="cursor:default">
       <div class="toggle-icon">🇧🇪</div>
-      <div class="toggle-label">ActivityMap</div>
+      <div class="toggle-label">YAMA</div>
       <div style="font-size:12px;color:var(--text3)" id="s-lbl-version">v1.0 Beta</div>
     </div>
   </div>
@@ -977,14 +977,14 @@ textarea:focus{border-color:var(--primary)}
   </div>
   <div class="sheet-body privacy-body">
     <div class="privacy-date">Дата вступления в силу: 1 июля 2026 г.</div>
-    <div class="privacy-block">ActivityMap работает только в Брюсселе, Антверпене, Брюгге и Генте. Мы никогда не знаем твой точный адрес.</div>
+    <div class="privacy-block">YAMA работает только в Брюсселе, Антверпене, Брюгге и Генте. Мы никогда не знаем твой точный адрес.</div>
     <h3>1. Данные которые мы собираем</h3>
     <p>Имя (ввод пользователя), возраст, город из списка четырёх, Telegram ID. Мы <b>не собираем</b> адрес, телефон, email, историю перемещений.</p>
     <h3>2. Геолокация и защита адреса</h3>
     <div class="privacy-block">При создании метки координаты автоматически смещаются на 10–30 метров в случайном направлении <b>до передачи на сервер</b>. Другие пользователи видят только примерную область — определить подъезд или квартиру невозможно.</div>
     <p><b>Точные</b> GPS-координаты на сервер не передаются и нигде не сохраняются — только смещённые (±30м). После удаления метки (авто через 12ч) координаты удаляются без восстановления.</p>
     <h3>3. Встречи и безопасность</h3>
-    <div class="privacy-block warn">ActivityMap — платформа знакомств для активностей. Мы <b>не несём ответственности</b> за действия пользователей, содержание общения и последствия личных встреч.</div>
+    <div class="privacy-block warn">YAMA — платформа знакомств для активностей. Мы <b>не несём ответственности</b> за действия пользователей, содержание общения и последствия личных встреч.</div>
     <p>Рекомендации безопасности: первые встречи — только в общественных местах; сообщи кому-то куда идёшь; доверяй интуиции.</p>
     <h3>4. Модерация</h3>
     <p>Жалоба — два нажатия. При 3+ жалобах разных пользователей — автоблокировка.</p>
@@ -1054,7 +1054,7 @@ const I18N = {
     geo_allow:'📍 Разрешить геолокацию',geo_skip:'Выбрать город вручную',
     geo_note:'🔒 Точные координаты обрабатываются только на твоём устройстве',
     reg_title:'Добро пожаловать!',
-    reg_sub:'ActivityMap работает в 4 городах Бельгии — найди компанию рядом прямо сегодня.',
+    reg_sub:'YAMA работает в 4 городах Бельгии — найди компанию рядом прямо сегодня.',
     name_label:'Имя',name_ph:'Как тебя зовут?',age_label:'Возраст',age_ph:'от 18 до 80',
     city_label:'Город',city_change:'Изменить',city_loading:'Определяем твой город...',
     submit:'Начать →',
@@ -1120,7 +1120,7 @@ const I18N = {
     choose_city:'Выбери город',
     prof_s_profile:'Профиль',prof_s_about:'О приложении',prof_s_account:'Аккаунт',
     prof_name:'Изменить имя',prof_city:'Сменить город',prof_age:'Изменить возраст',
-    prof_about:'ActivityMap v1.0',prof_privacy:'Политика конфиденциальности',
+    prof_about:'YAMA v1.0',prof_privacy:'Политика конфиденциальности',
     prof_delete:'Удалить аккаунт и данные',
     api_err:'Ошибка соединения, попробуй ещё раз',
     detecting:'⏳ Определяем...',
@@ -1131,7 +1131,7 @@ const I18N = {
     s_div_account:'Аккаунт',
     prof_sec_profile:'Профиль',prof_sec_about:'О приложении',
     prof_lbl_name:'Изменить имя',prof_lbl_city:'Сменить город',prof_lbl_age:'Изменить возраст',
-    prof_lbl_about:'ActivityMap v1.0',prof_lbl_privacy:'Политика конфиденциальности',
+    prof_lbl_about:'YAMA v1.0',prof_lbl_privacy:'Политика конфиденциальности',
     other_label_hint:'Что конкретно? (1–2 слова)',other_label_ph:'Например: йога, русский язык...',
     pin_success_title:'Метка опубликована!',pin_success_sub:'Адрес скрыт · ±30м',
     reg_lbl_name:'Имя',reg_lbl_age:'Возраст',reg_lbl_city:'Город',
@@ -1153,7 +1153,7 @@ const I18N = {
     geo_allow:'📍 Allow Location',geo_skip:'Choose city manually',
     geo_note:'🔒 Exact coordinates are processed on your device only',
     reg_title:'Welcome!',
-    reg_sub:'ActivityMap covers 4 cities in Belgium — find someone to hang out with today.',
+    reg_sub:'YAMA covers 4 cities in Belgium — find someone to hang out with today.',
     name_label:'Name',name_ph:'What\'s your name?',age_label:'Age',age_ph:'18 to 80',
     city_label:'City',city_change:'Change',city_loading:'Detecting your city...',
     submit:'Start →',
@@ -1219,7 +1219,7 @@ const I18N = {
     choose_city:'Choose a city',
     prof_s_profile:'Profile',prof_s_about:'About',prof_s_account:'Account',
     prof_name:'Change name',prof_city:'Change city',prof_age:'Change age',
-    prof_about:'ActivityMap v1.0',prof_privacy:'Privacy Policy',
+    prof_about:'YAMA v1.0',prof_privacy:'Privacy Policy',
     prof_delete:'Delete account & data',
     api_err:'Connection error, please try again',
     detecting:'⏳ Detecting...',
@@ -1230,7 +1230,7 @@ const I18N = {
     s_div_account:'Account',
     prof_sec_profile:'Profile',prof_sec_about:'About',
     prof_lbl_name:'Change name',prof_lbl_city:'Change city',prof_lbl_age:'Change age',
-    prof_lbl_about:'ActivityMap v1.0',prof_lbl_privacy:'Privacy Policy',
+    prof_lbl_about:'YAMA v1.0',prof_lbl_privacy:'Privacy Policy',
     other_label_hint:'What exactly? (1–2 words)',other_label_ph:'e.g. yoga, book club...',
     pin_success_title:'Pin published!',pin_success_sub:'Address hidden · ±30m',
     reg_lbl_name:'Name',reg_lbl_age:'Age',reg_lbl_city:'City',
@@ -1750,7 +1750,7 @@ async function detectCityFromGps(lat,lng){
   document.getElementById('city-picker-wrap').style.display='none';
   document.getElementById('city-auto-wrap').style.display='none';
   try{
-    const r=await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=ru`,{headers:{'User-Agent':'ActivityMapApp/1.0'}});
+    const r=await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=ru`,{headers:{'User-Agent':'YAMAApp/1.0'}});
     const d=await r.json();
     const rawCity=d.address?.city||d.address?.town||d.address?.village||'';
     const matched=CITY_NAMES.find(c=>rawCity.toLowerCase().includes(c.toLowerCase())||
