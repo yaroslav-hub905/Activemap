@@ -56,6 +56,9 @@ if not BOT_TOKEN:
 # Смена города
 (CITY_INPUT,) = range(20, 21)
 
+# Редактирование данных профиля
+(EDIT_INPUT,) = range(30, 31)
+
 
 # ── Вспомогательные функции ──────────────────────────────────
 
@@ -63,10 +66,18 @@ async def send(update: Update, text: str, **kwargs):
     """Отправить ответ независимо от типа апдейта."""
     kwargs.setdefault("parse_mode", ParseMode.MARKDOWN)
     if update.callback_query:
-        await update.callback_query.message.reply_text(text, **kwargs)
+        return await update.callback_query.message.reply_text(text, **kwargs)
     elif update.message:
-        await update.message.reply_text(text, **kwargs)
+        return await update.message.reply_text(text, **kwargs)
 
+async def _clear_prev_question(ctx: ContextTypes.DEFAULT_TYPE, chat_id: int) -> None:
+    """Удалить предыдущее сообщение-вопрос бота, чтобы не копился мусор в чате."""
+    msg_id = ctx.user_data.pop("last_q_msg_id", None)
+    if msg_id:
+        try:
+            await ctx.bot.delete_message(chat_id=chat_id, message_id=msg_id)
+        except TelegramError:
+            pass
 
 def time_label(code: str) -> str:
     now = datetime.now()
@@ -82,7 +93,6 @@ def time_label(code: str) -> str:
         return "сегодня вечером"
     return code
 
-
 # ── /start — регистрация ─────────────────────────────────────
 
 async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
@@ -93,52 +103,91 @@ async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
         db.update_username(user.id, user.username)
 
     if existing and not ctx.args:
-        kb_open = InlineKeyboardMarkup([[InlineKeyboardButton("🗺 Открыть карту", web_app=WebAppInfo(url=MINIAPP_URL))]]) if MINIAPP_URL else None
         await send(update, msg.profile_saved(
             existing["name"], existing["age"], existing["city"]
-        ), reply_markup=kb_open)
+        ), reply_markup=kb.kb_main_menu(MINIAPP_URL))
         return ConversationHandler.END
+
     await send(update, msg.welcome(user.first_name or "друг"))
+    name_msg = await send(update, msg.ask_name())
+    if name_msg:
+        ctx.user_data["last_q_msg_id"] = name_msg.message_id
     return REG_NAME
 
-
 async def reg_name(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
+    chat_id = update.effective_chat.id
+    await _clear_prev_question(ctx, chat_id)
+
     name = update.message.text.strip()
     if len(name) < 2 or len(name) > 40:
-        await send(update, "⚠️ Имя должно быть от 2 до 40 символов. Попробуй ещё раз:")
+        err = await send(update, "⚠️ Имя должно быть от 2 до 40 символов. Попробуй ещё раз:")
+        if err:
+            ctx.user_data["last_q_msg_id"] = err.message_id
         return REG_NAME
     ctx.user_data["reg_name"] = name
-    await send(update, msg.ask_age())
+    age_msg = await send(update, msg.ask_age())
+    if age_msg:
+        ctx.user_data["last_q_msg_id"] = age_msg.message_id
     return REG_AGE
 
-
 async def reg_age(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
+    chat_id = update.effective_chat.id
+    await _clear_prev_question(ctx, chat_id)
+
     try:
         age = int(update.message.text.strip())
         assert 18 <= age <= 80
     except (ValueError, AssertionError):
-        await send(update, msg.error_age())
+        err = await send(update, msg.error_age())
+        if err:
+            ctx.user_data["last_q_msg_id"] = err.message_id
         return REG_AGE
     ctx.user_data["reg_age"] = age
-    await send(update, msg.ask_city())
+    city_msg = await send(update, msg.ask_city(), reply_markup=kb.kb_belgium_cities())
+    if city_msg:
+        ctx.user_data["last_q_msg_id"] = city_msg.message_id
     return REG_CITY
 
-
-async def reg_city(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
-    city = update.message.text.strip().title()
+async def _finish_registration(update: Update, ctx: ContextTypes.DEFAULT_TYPE, city: str) -> None:
+    """Сохранить профиль и показать главное меню."""
     user = update.effective_user
     db.upsert_user(
-        tg_id    = user.id,
+        tg_id = user.id,
         username = user.username,
-        name     = ctx.user_data["reg_name"],
-        age      = ctx.user_data["reg_age"],
-        city     = city,
+        name = ctx.user_data["reg_name"],
+        age = ctx.user_data["reg_age"],
+        city = city,
     )
-    kb_open = InlineKeyboardMarkup([[InlineKeyboardButton("🗺 Открыть карту", web_app=WebAppInfo(url=MINIAPP_URL))]]) if MINIAPP_URL else None
     await send(update, msg.profile_saved(
         ctx.user_data["reg_name"], ctx.user_data["reg_age"], city
-    ), reply_markup=kb_open)
-    ctx.user_data.clear()   
+    ), reply_markup=kb.kb_main_menu(MINIAPP_URL))
+    ctx.user_data.clear()
+
+async def reg_city(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
+    chat_id = update.effective_chat.id
+    await _clear_prev_question(ctx, chat_id)
+    city = update.message.text.strip().title()
+    await _finish_registration(update, ctx, city)
+    return ConversationHandler.END
+
+async def reg_city_button(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
+    """Выбор города Бельгии кнопкой при регистрации."""
+    query = update.callback_query
+    await query.answer()
+    code = query.data.split(":", 1)[1]
+
+    try:
+        await query.message.delete()
+    except TelegramError:
+        pass
+    ctx.user_data.pop("last_q_msg_id", None)
+
+    if code == "other":
+        q = await ctx.bot.send_message(chat_id=update.effective_chat.id, text="Напиши название города:")
+        ctx.user_data["last_q_msg_id"] = q.message_id
+        return REG_CITY
+
+    await _finish_registration(update, ctx, code)
     return ConversationHandler.END
 
 
@@ -359,6 +408,77 @@ async def cmd_open_app(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     )
 
 
+# ── Изменение данных профиля ─────────────────────────────────
+
+FIELD_LABELS = {"name": "Имя", "age": "Возраст", "city": "Город"}
+
+async def editdata_entry(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    field = query.data.split(":", 1)[1]
+    ctx.user_data["edit_field"] = field
+
+    if field == "city":
+        await query.edit_message_text(msg.ask_new_city(), reply_markup=kb.kb_belgium_cities(prefix="editcity"))
+    elif field == "name":
+        await query.edit_message_text(msg.ask_new_name())
+    elif field == "age":
+        await query.edit_message_text(msg.ask_new_age())
+    else:
+        return ConversationHandler.END
+    return EDIT_INPUT
+
+async def editdata_save(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
+    field = ctx.user_data.get("edit_field")
+    tg_id = update.effective_user.id
+    text = update.message.text.strip()
+
+    if field == "name":
+        if len(text) < 2 or len(text) > 40:
+            await send(update, "⚠️ Имя должно быть от 2 до 40 символов. Попробуй ещё раз:")
+            return EDIT_INPUT
+        db.update_user_name(tg_id, text)
+        value = text
+
+    elif field == "age":
+        try:
+            age = int(text)
+            assert 18 <= age <= 80
+        except (ValueError, AssertionError):
+            await send(update, msg.error_age())
+            return EDIT_INPUT
+        db.update_user_age(tg_id, age)
+        value = str(age)
+
+    elif field == "city":
+        city = text.title()
+        db.update_user_city(tg_id, city)
+        value = city
+
+    else:
+        ctx.user_data.pop("edit_field", None)
+        return ConversationHandler.END
+
+    await send(update, msg.data_updated(FIELD_LABELS.get(field, field), value),
+                reply_markup=kb.kb_main_menu(MINIAPP_URL))
+    ctx.user_data.pop("edit_field", None)
+    return ConversationHandler.END
+
+async def editdata_city_button(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    code = query.data.split(":", 1)[1]
+    tg_id = update.effective_user.id
+
+    if code == "other":
+        await query.edit_message_text("Напиши название города:")
+        return EDIT_INPUT
+
+    db.update_user_city(tg_id, code)
+    await query.edit_message_text(msg.data_updated("Город", code), reply_markup=kb.kb_main_menu(MINIAPP_URL))
+    ctx.user_data.pop("edit_field", None)
+    return ConversationHandler.END
+
 # ── CallbackQuery обработчик ─────────────────────────────────
 
 async def callback_handler(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
@@ -441,6 +561,25 @@ async def callback_handler(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> No
     elif data == "delete_cancel":
         await query.edit_message_reply_markup(reply_markup=None)
 
+    # ---- Главное меню ----
+    elif data == "menu:editdata":
+        await query.edit_message_text(msg.edit_data_menu_text(), reply_markup=kb.kb_edit_data_menu())
+
+    elif data == "menu:back":
+        user_row = db.get_user(my_id)
+        if user_row:
+            await query.edit_message_text(
+                msg.profile_saved(user_row["name"], user_row["age"], user_row["city"]),
+                reply_markup=kb.kb_main_menu(MINIAPP_URL),
+            )
+
+    elif data == "menu:deactivate":
+        count = db.deactivate_all_activities(my_id)
+        await query.edit_message_text(
+            msg.all_pins_deactivated(count),
+            reply_markup=kb.kb_main_menu(MINIAPP_URL),
+        )
+
     # ---- Жалоба ----
     elif data.startswith("report:") and not data.startswith("report_"):
         _, act_id, reported_user = data.split(":")
@@ -486,7 +625,10 @@ def main() -> None:
         states={
             REG_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, reg_name)],
             REG_AGE:  [MessageHandler(filters.TEXT & ~filters.COMMAND, reg_age)],
-            REG_CITY: [MessageHandler(filters.TEXT & ~filters.COMMAND, reg_city)],
+        REG_CITY: [
+            CallbackQueryHandler(reg_city_button, pattern=r"^regcity:"),
+            MessageHandler(filters.TEXT & ~filters.COMMAND, reg_city),
+        ],
         },
         fallbacks=[CommandHandler("start", cmd_start)],
         allow_reentry=True,
@@ -523,10 +665,24 @@ def main() -> None:
         fallbacks=[],
     )
 
+    # ---- ConversationHandler: изменение данных профиля ----
+    edit_data_handler = ConversationHandler(
+        entry_points=[CallbackQueryHandler(editdata_entry, pattern=r"^editdata:")],
+        states={
+            EDIT_INPUT: [
+                CallbackQueryHandler(editdata_city_button, pattern=r"^editcity:"),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, editdata_save),
+            ],
+        },
+        fallbacks=[CommandHandler("start", cmd_start)],
+        allow_reentry=True,
+    )
+
     # ---- Регистрация хендлеров ----
     app.add_handler(reg_handler)
     app.add_handler(post_handler)
     app.add_handler(city_handler)
+    app.add_handler(edit_data_handler)
     app.add_handler(CommandHandler("browse", cmd_browse))
     app.add_handler(CommandHandler("mypost", cmd_mypost))
     app.add_handler(CommandHandler("delete", cmd_delete))
