@@ -7,10 +7,9 @@ import sqlite3
 
 def welcome(name: str) -> str:
     return (
-        f"👋 Привет, {name}! Я — *ActivityMap*.\n\n"
+        f"👋 Привет, {name}! Я — *YAMA*.\n\n"
         "Помогу найти компанию для встречи сегодня: "
-        "кофе, прогулка, бар, спорт, языковой обмен и многое другое.\n\n"
-        "Как тебя зовут?"
+        "кофе, прогулка, бар, спорт, языковой обмен и многое другое."
     )
 
 
@@ -24,8 +23,8 @@ def ask_age() -> str:
 
 def ask_city() -> str:
     return (
-        "В каком городе ты сейчас? Напиши название:\n"
-        "_Например: Берлин, Барселона, Лиссабон_"
+        "🇧🇪 В каком городе Бельгии ты сейчас?\n\n"
+        "Выбери из списка ниже или напиши название сам:"
     )
 
 
@@ -33,8 +32,9 @@ def profile_saved(name: str, age: int, city: str) -> str:
     return (
         f"✅ Профиль сохранён!\n\n"
         f"👤 *{name}*, {age} лет\n"
-        f"📍 *{city}*"
-        )
+        f"📍 *{city}*\n\n"
+        f"Выбирай, что дальше 👇"
+    )
 
 
 def ask_category() -> str:
@@ -167,3 +167,24 @@ def not_registered() -> str:
 
 def city_updated(city: str) -> str:
     return f"📍 Город обновлён: *{city}*"
+
+
+def edit_data_menu_text() -> str:
+    return "Что хочешь изменить?"
+
+def ask_new_name() -> str:
+    return "Напиши новое имя:"
+
+def ask_new_age() -> str:
+    return "Напиши новый возраст (18–80):"
+
+def ask_new_city() -> str:
+    return "🇧🇪 Выбери новый город Бельгии или напиши название:"
+
+def data_updated(field_label: str, value: str) -> str:
+    return f"✅ {field_label} обновлено: *{value}*"
+
+def all_pins_deactivated(count: int) -> str:
+    if count > 0:
+        return f"🗑 Готово! Деактивировано меток: {count}"
+    return "У тебя нет активных меток."
