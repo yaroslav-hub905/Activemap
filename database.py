@@ -149,7 +149,6 @@ def get_active_activity(user_id: int) -> sqlite3.Row | None:
             JOIN users u ON u.tg_id = a.user_id
             WHERE a.user_id = ?
               AND a.is_active = 1
-              AND a.expires_at > datetime('now')
             ORDER BY a.created_at DESC
             LIMIT 1
         """, (user_id,)).fetchone()
@@ -190,7 +189,6 @@ def get_activities_in_city(city: str, category: str | None = None,
                 WHERE a.city LIKE ?
                   AND a.category = ?
                   AND a.is_active = 1
-                  AND a.expires_at > datetime('now')
                   AND u.is_banned = 0
                 ORDER BY a.created_at DESC
                 LIMIT ?
@@ -203,7 +201,6 @@ def get_activities_in_city(city: str, category: str | None = None,
                 JOIN users u ON u.tg_id = a.user_id
                 WHERE a.city LIKE ?
                   AND a.is_active = 1
-                  AND a.expires_at > datetime('now')
                   AND u.is_banned = 0
                 ORDER BY a.created_at DESC
                 LIMIT ?
@@ -217,7 +214,6 @@ def get_all_active_activities(limit: int = 500) -> list[sqlite3.Row]:
             FROM activities a
             JOIN users u ON u.tg_id = a.user_id
             WHERE a.is_active = 1
-              AND a.expires_at > datetime('now')
               AND u.is_banned = 0
             ORDER BY a.created_at DESC
             LIMIT ?
