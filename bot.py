@@ -536,13 +536,8 @@ def main() -> None:
     app.add_handler(CallbackQueryHandler(callback_handler))
 
     # ---- Планировщик автоочистки (каждые 15 минут) ----
-    scheduler = AsyncIOScheduler()
-    scheduler.add_job(
-        lambda: asyncio.create_task(scheduled_cleanup(app)),
-        trigger="interval",
-        minutes=15,
-    )
-    scheduler.start()
+    # Автоочистка по таймауту отключена: метки остаются на карте,
+        # пока пользователь сам их не удалит (/delete или кнопка в мини-аппе).
 
     # ---- Команды в меню бота ----
     async def post_init(application: Application) -> None:
