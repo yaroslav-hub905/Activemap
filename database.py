@@ -6,7 +6,13 @@ import os
 from datetime import datetime, timedelta
 from contextlib import contextmanager
 
-DB_PATH = os.getenv("DB_PATH", "activitymap.db")
+# Путь к базе данных.
+# На Railway подключи Volume с mount path /data — тогда база будет
+# автоматически сохраняться там и переживать деплои (иначе файл лежит
+# внутри контейнера и стирается при каждом деплое!).
+# Можно также задать путь явно через переменную окружения DB_PATH.
+_DEFAULT_DB = "/data/activitymap.db" if os.path.isdir("/data") else "activitymap.db"
+DB_PATH = os.getenv("DB_PATH", _DEFAULT_DB)
 
 CATEGORIES = {
     "coffee": ("☕", "Кофе"),

@@ -412,8 +412,17 @@ textarea:focus{border-color:var(--primary)}
 /* detail */
 .detail-cat-badge{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:20px;font-size:13px;font-weight:700;margin-bottom:11px}
 .detail-name-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
-.detail-avatar{width:44px;height:44px;border-radius:50%;background:var(--primary-light);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:var(--primary);overflow:hidden;flex-shrink:0}
+.detail-avatar{width:56px;height:56px;border-radius:50%;background:var(--primary-light);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700;color:var(--primary);overflow:hidden;flex-shrink:0}
 .detail-avatar img{width:100%;height:100%;object-fit:cover}
+.detail-avatar.has-photo{cursor:pointer;border:2px solid var(--primary)}
+
+/* ── Fullscreen photo viewer (lightbox) ── */
+.photo-viewer{position:fixed;inset:0;background:rgba(0,0,0,.93);z-index:99999;display:none;align-items:center;justify-content:center;flex-direction:column;gap:14px}
+.photo-viewer.open{display:flex;animation:pvFade .15s ease}
+@keyframes pvFade{from{opacity:0}to{opacity:1}}
+.photo-viewer img{max-width:94vw;max-height:80vh;border-radius:18px;object-fit:contain;box-shadow:0 8px 40px rgba(0,0,0,.6)}
+.photo-viewer-name{color:#fff;font-size:17px;font-weight:700}
+.photo-viewer-close{position:absolute;top:calc(14px + env(safe-area-inset-top));right:16px;width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.14);color:#fff;font-size:18px;display:flex;align-items:center;justify-content:center;border:none}
 .detail-name{font-size:17px;font-weight:700}
 .detail-age{font-size:13px;color:var(--text2)}
 .detail-meta{display:flex;gap:7px;margin-bottom:13px;flex-wrap:wrap}
@@ -865,6 +874,13 @@ textarea:focus{border-color:var(--primary)}
       <div class="city-card" data-city='Гент' onclick="changeCityTo('Гент')"><div class="cc-flag">🎨</div><div class="cc-name">Гент</div><div class="cc-sub">Ghent</div></div>
     </div>
   </div>
+</div>
+
+<!-- Fullscreen photo viewer -->
+<div class="photo-viewer" id="photo-viewer" onclick="closePhotoView()">
+  <button class="photo-viewer-close" onclick="closePhotoView()">✕</button>
+  <img id="photo-viewer-img" src="" alt="">
+  <div class="photo-viewer-name" id="photo-viewer-name"></div>
 </div>
 
 <!-- Photo sheet -->
@@ -2285,6 +2301,7 @@ function openDetailObj(pin){
   // Безопасный аватар: фото или первая буква имени (экранируем имя)
   const initials=esc(pin.name||'?').charAt(0);
   const myPhoto=isMine?load('photo'):pin.photo;const ph=myPhoto?`<img src="${esc(myPhoto)}" style="width:100%;height:100%;object-fit:cover">`:`${initials}`;
+  const avatarCls=myPhoto?'detail-avatar has-photo':'detail-avatar';
   const detailLabel=esc(t('cat_'+pin.cat)||pin.catLabel||pin.cat);
   const detailTime=esc(pin.timeKey?t(pin.timeKey):(pin.time||''));
   const cityDisplay=esc(lang==='en'?(CITIES[pin.city]?.en||pin.city):pin.city);
@@ -2292,7 +2309,7 @@ function openDetailObj(pin){
   document.getElementById('detail-body').innerHTML=`
     <div class="detail-cat-badge" style="background:${col}18;color:${col}">${esc(pin.emoji)} ${detailLabel}</div>
     <div class="detail-name-row">
-      <div class="detail-avatar">${ph}</div>
+      <div class="${avatarCls}" id="detail-avatar-el">${ph}</div>
       <div><div class="detail-name">${esc(pin.name||'')}</div><div class="detail-age">${t('age_years',pin.age)} · 📍 ${cityDisplay}</div></div>
     </div>
     <div class="detail-meta">
@@ -2308,6 +2325,11 @@ function openDetailObj(pin){
       :`<button class="interest-btn" id="interest-btn-detail" data-pin-id="${esc(pinIdStr)}">${t('interest_btn')}</button>
         <div class="report-link" id="report-btn-detail" data-pin-id="${esc(pinIdStr)}">${t('report')}</div>`
     }`;
+  // Тап по аватарке с фото — открыть фото в полный размер
+  if(myPhoto){
+    document.getElementById('detail-avatar-el')?.addEventListener('click',
+      ()=>openPhotoView(myPhoto,pin.name||''));
+  }
   // Безопасные обработчики — не через inline onclick со строками
   if(isMine){
     document.getElementById('del-pin-btn')?.addEventListener('click',()=>{closeDetail();deleteMyPin();});
@@ -2319,6 +2341,18 @@ function openDetailObj(pin){
   setBackButton(closeDetail);
 }
 function closeDetail(){sheet('detail',false);clearBackButton();}
+
+// ── FULLSCREEN PHOTO VIEWER ───────────────────────────────
+function openPhotoView(src,name){
+  document.getElementById('photo-viewer-img').src=src;
+  document.getElementById('photo-viewer-name').textContent=name||'';
+  document.getElementById('photo-viewer').classList.add('open');
+  if(tg) tg.HapticFeedback?.impactOccurred('light');
+}
+function closePhotoView(){
+  document.getElementById('photo-viewer').classList.remove('open');
+  document.getElementById('photo-viewer-img').src='';
+}
 function openMyPinDetail(){if(myPin)openDetailObj({...myPin,id:'mine'})}
 
 // ── INTEREST (с debounce и API) ───────────────────────────
