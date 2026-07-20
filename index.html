@@ -1679,7 +1679,7 @@ async function syncFromServer(){
         activityLabel: r.catLabel||t('cat_'+r.category),
         activityDesc: r.description||'',
         time: r.time_text,
-        photo: null
+        photo: r.from_photo||null
       }));
       sentReqs=(reqs.sent||[]).map(r=>({
         id: r.id,
@@ -1693,7 +1693,7 @@ async function syncFromServer(){
         activityLabel: r.catLabel||t('cat_'+r.category),
         activityDesc: r.description||'',
         time: r.time_text,
-        photo: null
+        photo: r.to_photo||null
       }));
       save('receivedReqs',receivedReqs);
       save('sentReqs',sentReqs);
@@ -1707,7 +1707,7 @@ async function syncFromServer(){
           age:  r.from_age,
           city: r.from_city,
           username: r.from_username?('@'+r.from_username):null,
-          photo: null,
+          photo: r.from_photo||null,
           activityEmoji: r.emoji||'✨',
           activityCat: r.category,
           activityLabel: r.catLabel||t('cat_'+r.category),
@@ -2149,6 +2149,7 @@ function renderMatches(){
     card.className='match-card';
     const initial=esc((m.name||'?').charAt(0));
     const ph=m.photo?`<img src="${esc(m.photo)}" alt="">`:`${initial}`;
+    // тап по аватарке с фото — полноэкранный просмотр (после innerHTML ниже)
     const cityDisplay=esc(lang==='en'?(CITIES[m.city]?.en||m.city):m.city);
     const actLabel=esc(m.activityLabel||t('cat_'+m.activityCat)||'');
     const hasUsername=!!(m.username);
@@ -2170,6 +2171,10 @@ function renderMatches(){
     } else {
       card.querySelector('.match-tg-btn').disabled=true;
       card.querySelector('.match-tg-btn').style.opacity='0.5';
+    }
+    if(m.photo){
+      const av=card.querySelector('.match-avatar');
+      if(av){av.style.cursor='pointer';av.addEventListener('click',()=>openPhotoView(m.photo,m.name||''));}
     }
     scroll.appendChild(card);
   });
@@ -2217,6 +2222,10 @@ function renderRequests(){
         card.querySelector('.req-accept-btn')?.addEventListener('click',()=>acceptReq(r.id));
         card.querySelector('.req-decline-btn')?.addEventListener('click',()=>declineReq(r.id));
       }
+      if(r.photo){
+        const av=card.querySelector('.req-avatar');
+        if(av){av.style.cursor='pointer';av.addEventListener('click',()=>openPhotoView(r.photo,r.fromName||''));}
+      }
       scroll.appendChild(card);
     });
   }else{
@@ -2244,6 +2253,10 @@ function renderRequests(){
         }`;
       if(r.status==='accepted'&&r.toUsername){
         card.querySelector('.match-tg-btn')?.addEventListener('click',()=>openMatchContact(r.toUsername));
+      }
+      if(r.photo){
+        const av=card.querySelector('.req-avatar');
+        if(av){av.style.cursor='pointer';av.addEventListener('click',()=>openPhotoView(r.photo,r.toName||''));}
       }
       scroll.appendChild(card);
     });
@@ -2570,19 +2583,30 @@ function triggerGallery(){closePhotoSheet();document.getElementById('gallery-inp
 function handlePhoto(inp){
   const file=inp.files[0];if(!file)return;
   inp.value='';
-  // Сжимаем через canvas до 400×400 px, quality 0.75 — экономим localStorage
+  // Сжимаем через canvas до 900px, quality 0.85 — хорошее качество для
+  // полноэкранного просмотра, но в пределах лимита сервера (700KB base64).
+  // Если вдруг получилось больше лимита — пробуем ужать сильнее.
   const img=new Image();
   const objectUrl=URL.createObjectURL(file);
   img.onload=async()=>{
     URL.revokeObjectURL(objectUrl);
-    const MAX=400;
+    const MAX=900;
     const ratio=Math.min(MAX/img.width,MAX/img.height,1); // не увеличиваем маленькие
     const canvas=document.createElement('canvas');
     canvas.width=Math.round(img.width*ratio);
     canvas.height=Math.round(img.height*ratio);
     const ctx=canvas.getContext('2d');
     ctx.drawImage(img,0,0,canvas.width,canvas.height);
-    const b64=canvas.toDataURL('image/jpeg',0.75);
+    let b64=canvas.toDataURL('image/jpeg',0.85);
+    if(b64.length>650_000) b64=canvas.toDataURL('image/jpeg',0.7);
+    if(b64.length>650_000){
+      // Крайний случай: уменьшаем размер до 600px
+      const c2=document.createElement('canvas');
+      const r2=Math.min(600/canvas.width,600/canvas.height,1);
+      c2.width=Math.round(canvas.width*r2);c2.height=Math.round(canvas.height*r2);
+      c2.getContext('2d').drawImage(canvas,0,0,c2.width,c2.height);
+      b64=c2.toDataURL('image/jpeg',0.75);
+    }
     try{
       save('photo',b64);if(API&&TG_INIT) await apiCall('POST','/api/photo',{photo:b64});
       applyPhotoToUI(b64);
