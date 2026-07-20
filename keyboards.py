@@ -123,11 +123,22 @@ def kb_belgium_cities(prefix: str = "regcity") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(buttons)
 
 def kb_main_menu(miniapp_url: str = "") -> InlineKeyboardMarkup:
-    """Главное меню после сохранения профиля."""
-    rows = [[InlineKeyboardButton("✏️ Изменить данные", callback_data="menu:editdata")]]
+    """Главное меню после сохранения профиля.
+
+    Главное действие — «Начать поиск людей» — стоит первым, отдельной
+    широкой строкой и выделено эмодзи, чтобы не терялось среди
+    второстепенных кнопок (они собраны в одну строку ниже).
+    """
+    rows = []
     if miniapp_url:
-        rows.append([InlineKeyboardButton("🧭 Найти людей", web_app=WebAppInfo(url=miniapp_url))])
-    rows.append([InlineKeyboardButton("🗑 Деактивировать все метки", callback_data="menu:deactivate")])
+        rows.append([InlineKeyboardButton(
+            "🚀 НАЧАТЬ ПОИСК ЛЮДЕЙ 🗺",
+            web_app=WebAppInfo(url=miniapp_url),
+        )])
+    rows.append([
+        InlineKeyboardButton("✏️ Профиль", callback_data="menu:editdata"),
+        InlineKeyboardButton("🗑 Мои метки", callback_data="menu:deactivate"),
+    ])
     return InlineKeyboardMarkup(rows)
 
 def kb_edit_data_menu() -> InlineKeyboardMarkup:

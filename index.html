@@ -1569,8 +1569,38 @@ window.addEventListener('DOMContentLoaded',()=>{
   // Мок-заявка убрана — только реальные заявки от реальных пользователей
   if(!load('receivedReqs')) receivedReqs=[];
   if(user){showApp();tryGetGpsSilent()}
-  else document.getElementById('geo-screen').classList.remove('hidden');
+  else restoreOrRegister();
 });
+
+// ── RESTORE SESSION OR REGISTER ───────────────────────────
+// Пользователь мог уже зарегистрироваться через бота (/start) —
+// проверяем профиль на сервере, прежде чем показывать регистрацию.
+async function restoreOrRegister(){
+  if(API&&TG_INIT){
+    const startBtn=document.querySelector('.welcome-start-btn');
+    const startBtnText=startBtn?startBtn.textContent:'';
+    if(startBtn){startBtn.textContent='⏳';startBtn.disabled=true;}
+    try{
+      const meData=await apiCall('GET','/api/me');
+      if(meData?.user&&meData.user.name){
+        const u=meData.user;
+        user={
+          name: u.name,
+          age:  u.age,
+          city: u.city,
+          username: u.username?('@'+u.username):null,
+          photo: u.photo||null
+        };
+        save('user',user);
+        showApp();tryGetGpsSilent();
+        return;
+      }
+    }catch(e){console.warn('[restoreOrRegister]',e);}
+    if(startBtn){startBtn.textContent=startBtnText||'Начать →';startBtn.disabled=false;}
+  }
+  // Профиля нет — это действительно новый пользователь, показываем онбординг
+  document.getElementById('geo-screen').classList.remove('hidden');
+}
 
 // ── PIN EXPIRY CHECK (12h) ────────────────────────────────
 function checkPinExpiry(){
