@@ -499,6 +499,13 @@ async def callback_handler(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> No
             await query.answer("Это твоя метка 😊", show_alert=True)
             return
 
+        # Без регистрации и своей метки на карте откликаться нельзя
+        if not my_row or not db.has_active_pin(my_id):
+            await query.message.reply_text(
+                "📍 Чтобы откликаться на чужие метки, сначала поставь свою метку на карте."
+            )
+            return
+
         added = db.add_interest(act_id, my_id)
         if not added:
             await query.answer("Ты уже отметился!", show_alert=True)

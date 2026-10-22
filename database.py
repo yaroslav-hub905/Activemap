@@ -237,6 +237,18 @@ def get_city_stats(city: str) -> dict:
         """, (f"%{city}%",)).fetchone()
         return dict(row) if row else {"total_pins": 0, "unique_users": 0}
 
+def has_active_pin(user_id: int) -> bool:
+    """Есть ли у пользователя активная (не просроченная) метка на карте."""
+    with get_db() as db:
+        row = db.execute("""
+            SELECT 1 FROM activities
+            WHERE user_id = ?
+              AND is_active = 1
+              AND expires_at > datetime('now')
+            LIMIT 1
+        """, (user_id,)).fetchone()
+        return row is not None
+
 def add_interest(activity_id: int, from_user: int) -> bool:
     try:
         with get_db() as db:

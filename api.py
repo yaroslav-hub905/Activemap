@@ -233,12 +233,12 @@ def express_interest(body: InterestBody, x_init_data: str = Header(None)):
     if not me:
         raise HTTPException(404, "Register first")
 
-    try:
-        db.add_interest(body.activity_id, me["tg_id"])
-    except Exception as e:
-        if "UNIQUE" in str(e):
-            raise HTTPException(409, "Already interested")
-        raise HTTPException(500, str(e))
+    # Откликаться на чужие метки можно только если у тебя есть своя метка на карте
+    if not db.has_active_pin(me["tg_id"]):
+        raise HTTPException(403, "Pin required")
+
+    if not db.add_interest(body.activity_id, me["tg_id"]):
+        raise HTTPException(409, "Already interested")
 
     # Notify pin owner
     with db.get_db() as conn:

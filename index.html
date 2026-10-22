@@ -1098,6 +1098,7 @@ const I18N = {
     loc_confirm:'📍 Подтвердить место',loc_back:'← Назад',
     pin_ok:e=>`${e} Метка опубликована! 🛡 Адрес скрыт`,pin_del:'Метка удалена',
     pin_exists:'Сначала удали текущую метку',
+    need_pin:'📍 Чтобы откликаться, сначала поставь свою метку на карте',
     accepted_fn:n=>`✅ Принято! Мэтч с ${n} — смотри Мэтчи 🤝`,declined:'Заявка отклонена',
     notif_fn:n=>`${n} получит уведомление 👋`,
     matches_title:'🤝 Мэтчи',
@@ -1197,6 +1198,7 @@ const I18N = {
     loc_confirm:'📍 Confirm location',loc_back:'← Back',
     pin_ok:e=>`${e} Pin published! 🛡 Address hidden`,pin_del:'Pin deleted',
     pin_exists:'Delete your current pin first',
+    need_pin:'📍 Place your own pin on the map first to respond',
     accepted_fn:n=>`✅ Accepted! Matched with ${n} — check Matches 🤝`,declined:'Request declined',
     notif_fn:n=>`${n} will get a notification 👋`,
     matches_title:'🤝 Matches',
@@ -2373,6 +2375,14 @@ async function sendInterest(pinId,name){
   // Кнопка теперь имеет id="interest-btn-detail" (один detail открыт одновременно)
   const btn=document.getElementById('interest-btn-detail');
   if(!btn||btn.dataset.sending) return; // debounce
+  // Без регистрации и своей метки на карте откликаться нельзя
+  if(!user||!myPin){
+    showToast(t('need_pin'));
+    if(tg) tg.HapticFeedback?.notificationOccurred('error');
+    closeDetail();
+    if(user) setTimeout(openCreate,300);
+    return;
+  }
   btn.dataset.sending='1';
   btn.textContent=t('interest_sending');
   btn.disabled=true;
