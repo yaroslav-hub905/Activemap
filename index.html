@@ -5,11 +5,9 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>YAMA</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js"></script>
+<!-- MapLibre GL — векторная карта + 3D-глобус (тайлы: OpenFreeMap, данные © OpenStreetMap) -->
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css">
+<script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
 <style>
 /* ══ TOKENS ══════════════════════════════════════════════════ */
 :root{
@@ -193,74 +191,129 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 }
 
 /* ── map ── */
-#map-screen{background:#d4e0e8}
-#map{position:absolute;top:0;left:0;right:0;bottom:0}
-/* Critical Leaflet CSS — inlined так что CDN не нужен для базовой работы */
-.leaflet-container{width:100%!important;height:100%!important;background:#e8e4dc;overflow:hidden;position:absolute;top:0;left:0;right:0;bottom:0}
-[data-theme=dark] .leaflet-container{background:#1a1a1a}
-.leaflet-map-pane,.leaflet-tile,.leaflet-tile-container,.leaflet-pane,.leaflet-layer{position:absolute;left:0;top:0}
-.leaflet-tile{visibility:hidden}.leaflet-tile-loaded{visibility:inherit}
-.leaflet-tile-pane,.leaflet-overlay-pane,.leaflet-shadow-pane,.leaflet-marker-pane,.leaflet-tooltip-pane,.leaflet-popup-pane{position:absolute;left:0;top:0}
-.leaflet-map-pane{width:0;height:0}
-.leaflet-zoom-anim .leaflet-tile{will-change:transform}
-.leaflet-pan-anim .leaflet-tile{transition:none}
-.map-top{position:absolute;top:0;left:0;right:0;z-index:500;padding:calc(var(--safe-t) + 10px) 0 0}
+/* космос вокруг 3D-глобуса: виден только при отдалении, в городе карта перекрывает фон */
+#map-screen{background:#050a18}
+#map{position:absolute;top:0;left:0;right:0;bottom:0;
+  background:
+    radial-gradient(1px 1px at 12% 18%,rgba(255,255,255,.85),transparent 60%),
+    radial-gradient(1px 1px at 78% 12%,rgba(255,255,255,.7),transparent 60%),
+    radial-gradient(1.5px 1.5px at 34% 72%,rgba(255,255,255,.75),transparent 60%),
+    radial-gradient(1px 1px at 88% 64%,rgba(255,255,255,.6),transparent 60%),
+    radial-gradient(1px 1px at 56% 88%,rgba(255,255,255,.55),transparent 60%),
+    radial-gradient(1.5px 1.5px at 6% 52%,rgba(255,255,255,.6),transparent 60%),
+    radial-gradient(1px 1px at 66% 36%,rgba(255,255,255,.5),transparent 60%),
+    radial-gradient(ellipse at 50% 46%,#1c3a70 0%,#0b1631 46%,#03060e 100%)}
+#map .maplibregl-canvas{outline:none}
+/* ══ MAP REDESIGN · «тёплый вечерний город» ═══════════════════
+   Единая система: стеклянные панели поверх карты, радиусы 10/14/20,
+   две высоты теней, цвет категории (--c) сквозной для чипов, маркеров,
+   кластеров, ленты результатов и карточки. */
+:root{
+  --ease-out:cubic-bezier(.22,1,.36,1);
+  --ease-spring:cubic-bezier(.34,1.56,.64,1);
+  --glass:rgba(255,255,255,.86);
+  --glass-border:rgba(20,20,30,.07);
+  --elev-1:0 1px 2px rgba(20,20,30,.06),0 4px 14px rgba(20,20,30,.10);
+  --elev-2:0 2px 6px rgba(20,20,30,.08),0 12px 32px rgba(20,20,30,.16);
+  --r-sm:10px;--r-md:14px;--r-lg:20px;--r-pill:999px;
+  --ctrl:46px;
+  --map-bottom:calc(var(--nav-h) + var(--safe-b) + 14px);
+  --scrim:rgba(245,243,239,.72);
+}
+[data-theme=dark]{
+  --glass:rgba(24,24,34,.82);
+  --glass-border:rgba(255,255,255,.08);
+  --elev-1:0 1px 2px rgba(0,0,0,.3),0 4px 14px rgba(0,0,0,.35);
+  --elev-2:0 2px 6px rgba(0,0,0,.35),0 14px 36px rgba(0,0,0,.5);
+  --scrim:rgba(13,13,20,.62);
+}
+/* верхняя зона: поиск + фильтры + статус; пустые места пропускают жесты к карте */
+.map-top{position:absolute;top:0;left:0;right:0;z-index:500;padding:calc(var(--safe-t) + 10px) 0 0;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.map-top::before{content:'';position:absolute;left:0;right:0;top:0;height:calc(var(--safe-t) + 118px);background:linear-gradient(to bottom,var(--scrim),transparent);pointer-events:none;z-index:-1}
+/* поиск */
+.map-search{pointer-events:auto;position:relative;margin:0 12px;height:48px;display:flex;align-items:center;gap:6px;padding:0 6px 0 14px;border-radius:var(--r-md);background:var(--glass);backdrop-filter:blur(20px) saturate(1.4);-webkit-backdrop-filter:blur(20px) saturate(1.4);border:1px solid var(--glass-border);box-shadow:var(--elev-1);transition:box-shadow .2s,border-color .2s}
+.map-search:focus-within{border-color:var(--primary);box-shadow:var(--elev-2),0 0 0 3px rgba(232,132,90,.2)}
+.ms-icon{width:20px;height:20px;flex-shrink:0;fill:none;stroke:var(--text2);stroke-width:2;stroke-linecap:round}
+.ms-input{flex:1;min-width:0;height:100%;border:none;outline:none;background:transparent;color:var(--text);font-family:inherit;font-size:16px;font-weight:500;letter-spacing:-.01em;-webkit-appearance:none;appearance:none}
+.ms-input::placeholder{color:var(--text2);opacity:.75}
+.ms-input::-webkit-search-cancel-button,.ms-input::-webkit-search-decoration{-webkit-appearance:none;display:none}
+.ms-count{flex-shrink:0;min-width:28px;height:28px;padding:0 9px;border-radius:var(--r-pill);background:var(--primary-light);color:var(--primary);font-size:13px;font-weight:700;display:none;align-items:center;justify-content:center;font-variant-numeric:tabular-nums}
+.ms-count.show{display:inline-flex}
+.ms-clear{flex-shrink:0;width:36px;height:36px;border:none;border-radius:50%;background:transparent;color:var(--text2);display:none;align-items:center;justify-content:center;cursor:pointer;transition:background .15s}
+.ms-clear.show{display:flex}
+.ms-clear:active{background:var(--card2)}
+.ms-clear svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round}
+/* чипы категорий: цвет активного чипа = цвет категории */
 .filter-bar{
-  display:flex;gap:6px;overflow-x:auto;
-  padding:0 14px 10px;
-  scrollbar-width:none;
+  pointer-events:auto;display:flex;gap:8px;overflow-x:auto;
+  padding:2px 40px 10px 12px;scroll-padding-inline:12px 40px;scrollbar-width:none;scroll-snap-type:x proximity;
+  -webkit-mask-image:linear-gradient(to right,transparent 0,#000 12px,#000 calc(100% - 28px),transparent 100%);
+  mask-image:linear-gradient(to right,transparent 0,#000 12px,#000 calc(100% - 28px),transparent 100%);
 }
 .filter-bar::-webkit-scrollbar{display:none}
 .chip{
-  flex-shrink:0;padding:7px 13px;border-radius:20px;
-  font-size:13px;font-weight:600;cursor:pointer;border:none;
-  background:var(--pill-bg);
-  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
-  color:var(--text2);white-space:nowrap;
-  box-shadow:0 2px 8px rgba(0,0,0,.12);
-  border:1px solid var(--pill-border);
-  transition:all .15s;
+  --c:var(--primary);
+  flex-shrink:0;scroll-snap-align:start;height:36px;padding:0 14px 0 12px;
+  display:inline-flex;align-items:center;gap:6px;border-radius:var(--r-pill);
+  font-size:13.5px;font-weight:600;letter-spacing:-.01em;cursor:pointer;user-select:none;-webkit-user-select:none;white-space:nowrap;
+  color:var(--text);background:var(--glass);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  border:1px solid var(--glass-border);box-shadow:var(--elev-1);
+  transition:background .18s,color .18s,box-shadow .18s,transform .12s;
 }
-.chip.active{background:var(--primary);color:#fff;border-color:transparent;box-shadow:0 2px 12px rgba(232,132,90,.35)}
-.leaflet-control-zoom{border:none!important;border-radius:12px!important;overflow:hidden;box-shadow:var(--shadow)!important}
-.leaflet-control-zoom a{width:36px!important;height:36px!important;line-height:36px!important;font-size:18px!important;color:var(--text)!important;background:var(--card)!important;border:none!important}
-/* ── Zenly-style avatar pins ── */
-.z-pin{display:flex;flex-direction:column;align-items:center;cursor:pointer;will-change:transform;filter:drop-shadow(0 4px 12px rgba(0,0,0,.3))}
-/* Base avatar circle — bg adapts to theme */
-.z-av{
-  border-radius:50%;
-  background:var(--card);
-  display:flex;align-items:center;justify-content:center;
-  overflow:hidden;flex-shrink:0;
-  transition:transform .15s;
-}
-[data-theme=dark] .z-av{background:var(--card2)}
-.z-av.mine{
-  background:linear-gradient(135deg,#E8845A 0%,#F4A574 100%);
-}
-/* Letter inside avatar */
-.z-av-letter{
-  font-weight:800;line-height:1;
-  color:var(--text);
-  transition:color .15s;
-}
-[data-theme=dark] .z-av-letter{color:var(--text)}
-.z-av.mine .z-av-letter{color:#fff}
-/* Pin tail */
-.z-ptail{
-  width:0;height:0;
-  border-left:5px solid transparent;
-  border-right:5px solid transparent;
-  margin-top:-2px;flex-shrink:0;
-}
-/* Cluster */
-.z-cl{position:relative;cursor:pointer}
-.z-cl-c{position:absolute;border-radius:50%;background:var(--card);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.2)}
-[data-theme=dark] .z-cl-c{background:var(--card2)}
-.z-cl-n{position:absolute;bottom:-5px;right:-8px;background:var(--primary);color:#fff;border-radius:10px;font-size:10px;font-weight:800;padding:2px 6px;border:2px solid var(--card);white-space:nowrap;line-height:1.4;box-shadow:0 1px 4px rgba(0,0,0,.2)}
-/* override markercluster default styles */
-.marker-cluster-small,.marker-cluster-medium,.marker-cluster-large{background:none!important}
-.marker-cluster-small div,.marker-cluster-medium div,.marker-cluster-large div{display:none!important}
+.chip:active{transform:scale(.95)}
+.chip.active{background:var(--c);color:#fff;border-color:transparent;box-shadow:0 6px 16px -6px var(--c),var(--elev-1)}
+@media (hover:hover){.chip:not(.active):hover{background:var(--card)}}
+/* статус загрузки / ошибки */
+.map-status{pointer-events:auto;align-self:center;display:none;align-items:center;gap:8px;height:34px;padding:0 5px 0 12px;border-radius:var(--r-pill);background:var(--glass);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid var(--glass-border);box-shadow:var(--elev-1);font-size:13px;font-weight:600;color:var(--text2);animation:fadeDown .25s var(--ease-out)}
+.map-status.show{display:inline-flex}
+.map-status.loading{padding-right:14px}
+.map-status.error{color:var(--danger)}
+.map-status .spin{width:14px;height:14px;border-radius:50%;border:2px solid var(--border2);border-top-color:var(--primary);animation:spin .8s linear infinite}
+.map-status button{height:26px;padding:0 12px;border:none;border-radius:var(--r-pill);background:var(--primary);color:#fff;font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes fadeDown{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+/* подпись источника карты (обязательна по лицензии) — компактная «ⓘ» над навигацией */
+.maplibregl-ctrl-bottom-left{bottom:calc(var(--map-bottom) - 6px)!important;left:4px!important;transition:bottom .3s var(--ease-out)}
+#map-screen.has-results .maplibregl-ctrl-bottom-left{bottom:calc(var(--map-bottom) + 94px)!important}
+.maplibregl-ctrl-attrib.maplibregl-compact{background:var(--glass)!important;color:var(--text2);border-radius:var(--r-pill)!important;box-shadow:var(--elev-1);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+.maplibregl-ctrl-attrib a{color:var(--text2)!important}
+[data-theme=dark] .maplibregl-ctrl-attrib-button{filter:invert(1)}
+/* ── маркеры: кольцо цвета категории + бейдж-иконка категории ── */
+/* корневые элементы маркеров MapLibre позиционирует сам — им не задаём position */
+.mk-host,.cl-host{cursor:pointer}
+.mk{--c:#95A5A6;position:relative;width:52px;height:55px;display:flex;flex-direction:column;align-items:center;cursor:pointer;transform-origin:50% 100%;transition:transform .28s var(--ease-spring),filter .2s;filter:drop-shadow(0 3px 6px rgba(0,0,0,.28));animation:mkIn .38s var(--ease-spring) backwards}
+.mk-ring{position:relative;width:48px;height:48px;border-radius:50%;padding:3px;background:var(--c);flex-shrink:0}
+.mk-av{width:100%;height:100%;border-radius:50%;overflow:hidden;background:var(--card);border:2px solid var(--card);display:flex;align-items:center;justify-content:center;color:var(--c);font-size:18px;font-weight:800;line-height:1}
+[data-theme=dark] .mk-av{background:var(--card2);border-color:var(--card2)}
+.mk-av img{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none}
+.mk-tail{width:14px;height:9px;margin-top:-2px;background:var(--c);clip-path:polygon(0 0,100% 0,50% 100%)}
+.mk-badge{position:absolute;right:-5px;bottom:-3px;width:22px;height:22px;border-radius:50%;background:var(--card);box-shadow:0 1px 4px rgba(0,0,0,.28);display:flex;align-items:center;justify-content:center;font-size:12px;line-height:1}
+[data-theme=dark] .mk-badge{background:var(--card2)}
+.mk.mine .mk-ring{background:linear-gradient(135deg,#E8845A,#F7B27A)}
+.mk.mine .mk-av{background:linear-gradient(135deg,#E8845A,#F4A574);color:#fff;border-color:#fff}
+.mk-you{position:absolute;top:-11px;left:50%;transform:translateX(-50%);z-index:1;padding:2px 7px;border-radius:var(--r-pill);background:var(--text);color:var(--bg);font-size:10px;font-weight:800;letter-spacing:.02em;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.25)}
+@media (hover:hover){.mk:hover{transform:translateY(-2px) scale(1.06)}}
+.mk.sel{transform:scale(1.2);filter:drop-shadow(0 8px 14px rgba(0,0,0,.35))}
+.mk.sel .mk-ring::before{content:'';position:absolute;inset:-6px;border-radius:50%;border:2px solid var(--c);opacity:0;animation:mkPulse 1.6s var(--ease-out) infinite}
+@keyframes mkPulse{0%{transform:scale(.85);opacity:.75}100%{transform:scale(1.45);opacity:0}}
+@keyframes mkIn{from{opacity:0;transform:translateY(-8px) scale(.6)}to{opacity:1;transform:none}}
+/* ── кластеры: стопка аватаров + счётчик ── */
+.cl{position:relative;display:flex;padding:6px;align-items:center;justify-content:center;cursor:pointer;filter:drop-shadow(0 4px 10px rgba(0,0,0,.28));transition:transform .2s var(--ease-spring)}
+.cl-stack{display:flex;padding:4px;border-radius:var(--r-pill);background:var(--card)}
+[data-theme=dark] .cl-stack{background:var(--card2)}
+.cl-av{--c:#95A5A6;width:30px;height:30px;margin-left:-10px;border-radius:50%;border:2px solid var(--c);background:var(--card);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:var(--c);overflow:hidden}
+[data-theme=dark] .cl-av{background:var(--card2)}
+.cl-av:first-child{margin-left:0}
+.cl-av img{width:100%;height:100%;object-fit:cover;display:block}
+.cl-n{position:absolute;top:-2px;right:-2px;min-width:22px;height:22px;padding:0 6px;border-radius:var(--r-pill);background:var(--primary);color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;border:2px solid var(--card);font-variant-numeric:tabular-nums}
+[data-theme=dark] .cl-n{border-color:var(--card2)}
+@media (hover:hover){.cl:hover{transform:scale(1.06)}}
+/* ── точка «я здесь» ── */
+.me-dot{width:22px;height:22px}
+.me-dot::before{content:'';position:absolute;inset:-9px;border-radius:50%;background:rgba(66,133,244,.28);animation:mePulse 2s var(--ease-out) infinite}
+.me-dot::after{content:'';position:absolute;inset:0;border-radius:50%;background:#4285F4;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+@keyframes mePulse{0%{transform:scale(.6);opacity:.9}100%{transform:scale(1.6);opacity:0}}
 
 /* ── matches ── */
 #list-screen{background:var(--bg)}
@@ -428,6 +481,29 @@ textarea:focus{border-color:var(--primary)}
 .detail-meta{display:flex;gap:7px;margin-bottom:13px;flex-wrap:wrap}
 .detail-tag{display:inline-flex;align-items:center;gap:3px;padding:4px 10px;border-radius:16px;font-size:12px;font-weight:600;background:var(--bg);color:var(--text2)}
 .detail-desc{font-size:14px;line-height:1.55;color:var(--text);background:var(--bg);border-radius:12px;padding:12px 14px;margin-bottom:15px}
+/* ── карточка метки (редизайн) ── */
+.dc-cover{position:relative;margin:-16px -18px 14px;height:220px;overflow:hidden;cursor:zoom-in;background:var(--card2)}
+.dc-cover img{width:100%;height:100%;object-fit:cover;object-position:center 30%;display:block}
+.dc-cover::after{content:'';position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.62),rgba(0,0,0,0) 58%);pointer-events:none}
+.dc-cover-top{position:absolute;left:16px;right:16px;top:14px;z-index:1;display:flex;align-items:center;justify-content:space-between}
+.dc-zoom{width:32px;height:32px;border-radius:50%;background:rgba(0,0,0,.42);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center}
+.dc-zoom svg{width:16px;height:16px;fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.dc-cover-id{position:absolute;left:18px;right:18px;bottom:14px;z-index:1;color:#fff}
+.dc-cover-id .dc-sub{color:rgba(255,255,255,.88)}
+.dc-head{display:flex;align-items:center;gap:14px;margin-bottom:14px}
+.dc-av{width:68px;height:68px;border-radius:50%;padding:3px;background:var(--c,var(--primary));flex-shrink:0}
+.dc-av-in{width:100%;height:100%;border-radius:50%;background:var(--card);border:2px solid var(--card);display:flex;align-items:center;justify-content:center;color:var(--c,var(--primary));font-size:27px;font-weight:800}
+.dc-id{min-width:0}
+.dc-cat{display:inline-flex;align-items:center;gap:5px;height:26px;padding:0 10px;border-radius:var(--r-pill);background:var(--c,var(--primary));color:#fff;font-size:12.5px;font-weight:700;margin-bottom:6px;box-shadow:0 2px 8px rgba(0,0,0,.18)}
+.dc-cover-top .dc-cat{margin-bottom:0}
+.dc-name{font-size:22px;font-weight:800;letter-spacing:-.02em;line-height:1.15;overflow-wrap:anywhere}
+.dc-sub{font-size:14px;color:var(--text2);margin-top:3px}
+.dc-facts{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.dc-fact{flex:1 1 130px;display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:var(--r-md);background:var(--bg);font-size:13px;font-weight:600;color:var(--text)}
+.dc-fact-ic{font-size:16px;line-height:1}
+.dc-fact.you{background:var(--primary-light);color:var(--primary)}
+.dc-desc{font-size:15px;line-height:1.55;color:var(--text);padding:14px 16px;border-radius:var(--r-md);background:var(--bg);margin-bottom:16px;white-space:pre-wrap;overflow-wrap:anywhere}
+.dc-desc.empty{color:var(--text2);font-style:italic}
 .interest-btn{width:100%;padding:15px;border-radius:var(--radius);background:var(--primary);border:none;color:#fff;font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:all .15s;font-family:inherit}
 .interest-btn:active{transform:scale(.97)}
 .interest-btn.sent{background:var(--secondary)}
@@ -470,57 +546,74 @@ textarea:focus{border-color:var(--primary)}
 .other-label-input{width:100%;border:1.5px solid var(--border);border-radius:10px;padding:10px 13px;font-size:15px;font-family:inherit;outline:none;color:var(--text);background:var(--card);transition:border-color .15s}
 .other-label-input:focus{border-color:var(--primary)}
 
-/* ── map overlay buttons — positioned above pill nav ── */
-/* nav pill: height 68px + bottom 14px = 82px from bottom + safe-b */
-.map-layer-btn{
-  position:absolute;
-  bottom:calc(var(--nav-h) + var(--safe-b) + 14px);
-  right:14px;left:auto;
-  z-index:600;width:44px;height:44px;border-radius:14px;
-  background:var(--pill-bg);
-  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
-  border:1px solid var(--pill-border);
-  box-shadow:0 4px 16px rgba(0,0,0,.18);
-  display:flex;align-items:center;justify-content:center;cursor:pointer;
-  transition:opacity .15s;
-}
-.map-layer-btn:active{opacity:.7}
-.map-layer-btn svg{width:20px;height:20px;stroke:var(--text2);stroke-width:1.8;fill:none}
-/* ── my location button ── */
-.map-locate-btn{
-  position:absolute;
-  bottom:calc(var(--nav-h) + var(--safe-b) + 66px);
-  right:14px;left:auto;
-  z-index:600;width:44px;height:44px;border-radius:14px;
-  background:var(--pill-bg);
-  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
-  border:1px solid var(--pill-border);
-  box-shadow:0 4px 16px rgba(0,0,0,.18);
-  display:flex;align-items:center;justify-content:center;cursor:pointer;
-  transition:opacity .15s,border-color .2s;
-}
-.map-locate-btn:active{opacity:.7}
-.map-locate-btn svg{width:20px;height:20px;fill:none;stroke:var(--text2);stroke-width:1.8;transition:stroke .2s}
-.map-locate-btn.locating svg{stroke:var(--primary);animation:pulse-loc .9s infinite alternate}
-.map-locate-btn.located svg{stroke:var(--secondary)}
+/* ── кнопки карты: одна стеклянная группа над навигацией ── */
+.map-ctrls{position:absolute;right:12px;bottom:var(--map-bottom);z-index:600;display:flex;flex-direction:column;border-radius:var(--r-md);background:var(--glass);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid var(--glass-border);box-shadow:var(--elev-1);overflow:hidden;transition:bottom .3s var(--ease-out)}
+.map-ctrls button{width:var(--ctrl);height:var(--ctrl);border:none;background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text2);transition:background .15s,color .15s}
+.map-ctrls button+button{border-top:1px solid var(--glass-border)}
+.map-ctrls button:active{background:var(--card2)}
+@media (hover:hover){.map-ctrls button:hover{color:var(--text)}}
+.map-ctrls svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.map-locate-btn.locating{color:var(--primary)}
+.map-locate-btn.locating svg{animation:pulse-loc .9s infinite alternate}
+.map-locate-btn.located{color:#4285F4}
+.map-ctrls button.on{color:var(--primary);background:var(--primary-light)}
+.map-3d-txt{font-size:13px;font-weight:800;letter-spacing:-.02em}
+.map-compass{display:none!important}
+.map-compass.show{display:flex!important}
+.map-compass svg{transition:transform .15s linear}
 @keyframes pulse-loc{from{opacity:.5}to{opacity:1}}
-.map-style-popup{
-  position:absolute;
-  bottom:calc(var(--nav-h) + var(--safe-b) + 118px);
-  right:14px;left:auto;
-  z-index:610;
-  background:var(--card);
-  border-radius:16px;
-  box-shadow:0 8px 32px rgba(0,0,0,.22),0 2px 8px rgba(0,0,0,.1);
-  border:0.5px solid var(--border);
-  overflow:hidden;display:none;min-width:175px;
-}
-.map-style-popup.open{display:block}
-.msp-row{display:flex;align-items:center;gap:10px;padding:11px 14px;cursor:pointer;font-size:14px;font-weight:600;color:var(--text2);transition:background .12s}
-.msp-row:not(:last-child){border-bottom:0.5px solid var(--border)}
+.map-style-popup{position:absolute;right:calc(12px + var(--ctrl) + 10px);bottom:var(--map-bottom);z-index:610;min-width:184px;padding:6px;background:var(--card);border-radius:var(--r-md);border:1px solid var(--glass-border);box-shadow:var(--elev-2);display:none;transform-origin:100% 100%;transition:bottom .3s var(--ease-out)}
+.map-style-popup.open{display:block;animation:popIn .2s var(--ease-out)}
+.msp-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--r-sm);cursor:pointer;font-size:14px;font-weight:600;color:var(--text2);transition:background .12s,color .12s}
 .msp-row.active{color:var(--primary);background:var(--primary-light)}
 .msp-row:active{background:var(--card2)}
 .msp-icon{font-size:17px;width:22px;text-align:center}
+@keyframes popIn{from{opacity:0;transform:scale(.92) translateY(6px)}to{opacity:1;transform:none}}
+/* ── нижняя лента результатов (поиск/фильтр) и пустые состояния ── */
+.map-results{position:absolute;left:0;right:0;bottom:var(--map-bottom);z-index:590;display:none;gap:10px;overflow-x:auto;padding:4px 12px 6px;scroll-padding-inline:12px;scroll-snap-type:x mandatory;scrollbar-width:none;pointer-events:none}
+.map-results::-webkit-scrollbar{display:none}
+#map-screen.has-results .map-results{display:flex}
+#map-screen.has-results .map-ctrls{bottom:calc(var(--map-bottom) + 100px)}
+#map-screen.has-results .map-style-popup{bottom:calc(var(--map-bottom) + 100px)}
+.rc{--c:#95A5A6;pointer-events:auto;flex:0 0 auto;width:min(272px,78vw);scroll-snap-align:center;display:flex;gap:12px;align-items:center;padding:12px;border-radius:var(--r-lg);background:var(--card);border:1px solid var(--glass-border);box-shadow:var(--elev-2);cursor:pointer;text-align:left;font-family:inherit;color:var(--text);animation:rcIn .32s var(--ease-out) backwards;transition:transform .12s,outline-color .2s;outline:2px solid transparent;outline-offset:-2px}
+.rc:active{transform:scale(.98)}
+.rc.sel{outline-color:var(--c)}
+.rc-av{position:relative;width:52px;height:52px;border-radius:50%;padding:2.5px;background:var(--c);flex-shrink:0}
+.rc-av-in{width:100%;height:100%;border-radius:50%;overflow:hidden;background:var(--card);border:2px solid var(--card);display:flex;align-items:center;justify-content:center;color:var(--c);font-weight:800;font-size:19px}
+.rc-av-in img{width:100%;height:100%;object-fit:cover;display:block}
+.rc-body{min-width:0;flex:1}
+.rc-top{display:flex;align-items:baseline;gap:6px;min-width:0}
+.rc-name{font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.01em}
+.rc-age{font-size:13px;color:var(--text2);flex-shrink:0}
+.rc-cat{display:inline-flex;align-items:center;gap:4px;margin-top:4px;padding:2px 8px;border-radius:var(--r-pill);font-size:12px;font-weight:700;color:var(--c);background:var(--card2);max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rc-sub{margin-top:5px;font-size:12.5px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mx{pointer-events:auto;flex:1 1 auto;margin:0 auto;max-width:440px;display:flex;align-items:center;gap:12px;padding:14px 12px 14px 16px;border-radius:var(--r-lg);background:var(--card);border:1px solid var(--glass-border);box-shadow:var(--elev-2);animation:rcIn .32s var(--ease-out) backwards}
+.mx-ic{font-size:26px;line-height:1;flex-shrink:0}
+.mx-txt{min-width:0}
+.mx-t{font-weight:700;font-size:14.5px}
+.mx-s{font-size:12.5px;color:var(--text2);margin-top:2px;line-height:1.35}
+.mx-btn{margin-left:auto;flex-shrink:0;height:36px;padding:0 14px;border:none;border-radius:var(--r-pill);background:var(--primary);color:#fff;font-family:inherit;font-weight:700;font-size:13px;cursor:pointer}
+.mx-btn:active{transform:scale(.96)}
+@keyframes rcIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+/* во время выбора места для метки прячем поиск, ленту и кнопки */
+#map-screen:has(.loc-picker-overlay.active) :is(.map-top,.map-results,.map-ctrls,.map-style-popup){display:none!important}
+/* ПК / широкие окна: панели слева, шторки — боковой карточкой */
+@media (min-width:768px){
+  .map-top{padding-left:16px;padding-right:16px;align-items:flex-start}
+  .map-search{width:440px;margin:0}
+  .filter-bar{padding:2px 0 10px;flex-wrap:wrap;max-width:min(760px,calc(100vw - 32px));-webkit-mask-image:none;mask-image:none;overflow:visible}
+  .map-status{align-self:flex-start}
+  .map-results{left:16px;right:auto;max-width:calc(100vw - 32px);padding-left:0}
+  .map-ctrls{right:16px}
+  .map-style-popup{right:calc(16px + var(--ctrl) + 10px)}
+  .sheet{left:16px;right:auto;bottom:16px;width:420px;border-radius:var(--r-lg);max-height:calc(100vh - 32px);transform:translateY(calc(100% + 32px));box-shadow:var(--elev-2)}
+  .sheet.open{transform:none}
+}
+@media (prefers-reduced-motion:reduce){
+  .mk,.rc,.mx,.map-status,.map-style-popup.open{animation:none!important}
+  .mk.sel .mk-ring::before,.me-dot::before{animation:none!important;opacity:0}
+  .mk,.chip,.map-ctrls,.cl{transition:none!important}
+}
 
 /* ── location picker overlay ── */
 /* overlay всегда pointer-events:none — чтобы тачи к карте проходили насквозь */
@@ -634,20 +727,31 @@ textarea:focus{border-color:var(--primary)}
 <div class="screen active" id="map-screen">
   <div id="map"></div>
 
-  <!-- Filter chips -->
+  <!-- Search + filter chips + load status -->
   <div class="map-top">
+    <div class="map-search" role="search">
+      <svg class="ms-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/></svg>
+      <input id="map-search-input" class="ms-input" type="search" enterkeyhint="search" autocomplete="off" autocorrect="off" spellcheck="false"
+        placeholder="Поиск: имя, занятие, описание" aria-label="Поиск по меткам"
+        oninput="onMapSearch(this.value)" onkeydown="onMapSearchKey(event)">
+      <span class="ms-count" id="ms-count" aria-live="polite"></span>
+      <button type="button" class="ms-clear" id="ms-clear" onclick="clearMapSearch()" aria-label="Очистить поиск">
+        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
     <div class="filter-bar">
       <div class="chip active" id="chip-all" onclick="filterMap('all',this)">🗺 Все</div>
-      <div class="chip" id="chip-coffee" onclick="filterMap('coffee',this)">☕ <span id="chip-lbl-coffee">Кофе</span></div>
-      <div class="chip" id="chip-walk" onclick="filterMap('walk',this)">🚶 <span id="chip-lbl-walk">Прогулка</span></div>
-      <div class="chip" id="chip-bar" onclick="filterMap('bar',this)">🍺 <span id="chip-lbl-bar">Бар</span></div>
-      <div class="chip" id="chip-sport" onclick="filterMap('sport',this)">⚽ <span id="chip-lbl-sport">Спорт</span></div>
-      <div class="chip" id="chip-language" onclick="filterMap('language',this)">💬 <span id="chip-lbl-language">Языки</span></div>
-      <div class="chip" id="chip-culture" onclick="filterMap('culture',this)">🎭 <span id="chip-lbl-culture">Культура</span></div>
-      <div class="chip" id="chip-food" onclick="filterMap('food',this)">🍜 <span id="chip-lbl-food">Еда</span></div>
-      <div class="chip" id="chip-work" onclick="filterMap('work',this)">💻 <span id="chip-lbl-work">Коворк</span></div>
-      <div class="chip" id="chip-other" onclick="filterMap('other',this)">✨ <span id="chip-lbl-other">Другое</span></div>
+      <div class="chip" id="chip-coffee" style="--c:#E8845A" onclick="filterMap('coffee',this)">☕ <span id="chip-lbl-coffee">Кофе</span></div>
+      <div class="chip" id="chip-walk" style="--c:#4A90E2" onclick="filterMap('walk',this)">🚶 <span id="chip-lbl-walk">Прогулка</span></div>
+      <div class="chip" id="chip-bar" style="--c:#9B59B6" onclick="filterMap('bar',this)">🍺 <span id="chip-lbl-bar">Бар</span></div>
+      <div class="chip" id="chip-sport" style="--c:#27AE60" onclick="filterMap('sport',this)">⚽ <span id="chip-lbl-sport">Спорт</span></div>
+      <div class="chip" id="chip-language" style="--c:#2BBFA8" onclick="filterMap('language',this)">💬 <span id="chip-lbl-language">Языки</span></div>
+      <div class="chip" id="chip-culture" style="--c:#E91E8C" onclick="filterMap('culture',this)">🎭 <span id="chip-lbl-culture">Культура</span></div>
+      <div class="chip" id="chip-food" style="--c:#FF6B35" onclick="filterMap('food',this)">🍜 <span id="chip-lbl-food">Еда</span></div>
+      <div class="chip" id="chip-work" style="--c:#607D8B" onclick="filterMap('work',this)">💻 <span id="chip-lbl-work">Коворк</span></div>
+      <div class="chip" id="chip-other" style="--c:#95A5A6" onclick="filterMap('other',this)">✨ <span id="chip-lbl-other">Другое</span></div>
     </div>
+    <div class="map-status" id="map-status" role="status"></div>
   </div>
 
   <!-- Map style picker -->
@@ -656,16 +760,24 @@ textarea:focus{border-color:var(--primary)}
     <div class="msp-row" id="msp-1" onclick="setMapStyle(1)"><span class="msp-icon">◻️</span><span id="msp-lbl-1">Чистая</span></div>
     <div class="msp-row" id="msp-2" onclick="setMapStyle(2)"><span class="msp-icon">🗺</span><span id="msp-lbl-2">Классика</span></div>
   </div>
-  <button class="map-layer-btn" onclick="toggleMapStylePicker()" title="Стиль карты">
-    <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
-  </button>
-  <button class="map-locate-btn" id="map-locate-btn" onclick="goToMyLocation()" title="Моё местоположение">
-    <svg viewBox="0 0 24 24">
-      <circle cx="12" cy="12" r="3"/>
-      <path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
-      <circle cx="12" cy="12" r="7" stroke-dasharray="none"/>
-    </svg>
-  </button>
+  <!-- Map controls (one glass group) -->
+  <div class="map-ctrls">
+    <button class="map-compass" id="map-compass" onclick="resetNorth()" title="Север" aria-label="Повернуть на север">
+      <svg viewBox="0 0 24 24"><path d="M12 3l4 9h-8z" fill="#E24B4A" stroke="none"/><path d="M12 21l-4-9h8z" fill="currentColor" stroke="none" opacity=".45"/></svg>
+    </button>
+    <button class="map-locate-btn" id="map-locate-btn" onclick="goToMyLocation()" title="Моё местоположение" aria-label="Моё местоположение">
+      <svg viewBox="0 0 24 24"><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.6" fill="currentColor" stroke="none"/></svg>
+    </button>
+    <button id="map-3d-btn" onclick="toggle3D()" title="3D-вид" aria-label="3D-вид"><span class="map-3d-txt">3D</span></button>
+    <button id="map-globe-btn" onclick="toggleGlobe()" title="Глобус" aria-label="Глобус">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.6 3.9 5.6 3.9 9s-1.3 6.4-3.9 9M12 3C9.4 5.6 8.1 8.6 8.1 12s1.3 6.4 3.9 9"/></svg>
+    </button>
+    <button class="map-layer-btn" onclick="toggleMapStylePicker()" title="Стиль карты" aria-label="Стиль карты">
+      <svg viewBox="0 0 24 24"><path d="M12 3L2.5 8l9.5 5 9.5-5L12 3z"/><path d="M2.5 16.5L12 21.5l9.5-5"/><path d="M2.5 12.2L12 17.2l9.5-5"/></svg>
+    </button>
+  </div>
+  <!-- Bottom results strip (search / filter) -->
+  <div class="map-results" id="map-results" aria-live="polite"></div>
 
   <!-- Location picker overlay (activated during pin creation) -->
   <div class="loc-picker-overlay" id="loc-picker-overlay">
@@ -1030,8 +1142,8 @@ if(tg){
     // Only block when the target is the map itself (not scrollable sheets/lists)
     const mapEl = document.getElementById('map');
     if(mapEl && mapEl.contains(e.target)){
-      // Let Leaflet handle map pan, but prevent page-level scroll (which triggers TG close)
-      // We don't stopPropagation so Leaflet still pans, but prevent default page scroll
+      // Let the map handle pan, but prevent page-level scroll (which triggers TG close)
+      // We don't stopPropagation so the map still pans, but prevent default page scroll
     }
   }, {passive:true});
   // Confirm before close to prevent accidental exits
@@ -1039,7 +1151,7 @@ if(tg){
   // При изменении размера viewport (expand/collapse) обновляем карту
   tg.onEvent('viewportChanged',()=>{
     if(!map) return;
-    setTimeout(()=>map&&map.invalidateSize(),50);
+    setTimeout(()=>map&&map.resize(),50);
   });
 }
 
@@ -1145,6 +1257,11 @@ const I18N = {
     cat_language:'Языки',cat_culture:'Культура',cat_food:'Еда',cat_work:'Коворкинг',cat_other:'Другое',
     chip_all:'Все',chip_coffee:'Кофе',chip_walk:'Прогулка',chip_bar:'Бар',chip_sport:'Спорт',
     chip_language:'Языки',chip_culture:'Культура',chip_food:'Еда',chip_work:'Коворк',chip_other:'Другое',
+    search_ph:'Поиск: имя, занятие, описание',search_clear:'Очистить поиск',you_label:'Ты',
+    no_results:'Ничего не нашлось',no_results_sub:'Попробуй другой запрос или категорию',reset_filters:'Сбросить',
+    pins_loading:'Загружаем метки…',pins_err:'Не удалось загрузить метки',retry:'Повторить',
+    map_empty:'Здесь пока тихо',map_empty_sub:'Поставь первую метку — и тебя увидят рядом',map_empty_cta:'Поставить',
+    photo_open:'Открыть фото',map_unsupported:'Карта не поддерживается этим устройством',
     s_div_account:'Аккаунт',
     prof_sec_profile:'Профиль',prof_sec_about:'О приложении',
     prof_lbl_name:'Изменить имя',prof_lbl_city:'Сменить город',prof_lbl_age:'Изменить возраст',
@@ -1245,6 +1362,11 @@ const I18N = {
     cat_language:'Languages',cat_culture:'Culture',cat_food:'Food',cat_work:'Co-working',cat_other:'Other',
     chip_all:'All',chip_coffee:'Coffee',chip_walk:'Walk',chip_bar:'Bar',chip_sport:'Sport',
     chip_language:'Languages',chip_culture:'Culture',chip_food:'Food',chip_work:'Co-work',chip_other:'Other',
+    search_ph:'Search: name, activity, description',search_clear:'Clear search',you_label:'You',
+    no_results:'Nothing found',no_results_sub:'Try another query or category',reset_filters:'Reset',
+    pins_loading:'Loading pins…',pins_err:"Couldn't load pins",retry:'Retry',
+    map_empty:"It's quiet here",map_empty_sub:'Drop the first pin so people nearby can find you',map_empty_cta:'Drop a pin',
+    photo_open:'Open photo',map_unsupported:'Map is not supported on this device',
     s_div_account:'Account',
     prof_sec_profile:'Profile',prof_sec_about:'About',
     prof_lbl_name:'Change name',prof_lbl_city:'Change city',prof_lbl_age:'Change age',
@@ -1331,6 +1453,11 @@ function applyLang(){
   si('chip-all',lang==='ru'?'chip_all':'chip_all');
   const chipAllEl=qi('chip-all');if(chipAllEl)chipAllEl.textContent='🗺 '+t('chip_all');
   ['coffee','walk','bar','sport','language','culture','food','work','other'].forEach(c=>si('chip-lbl-'+c,'chip_'+c));
+  // Map search + overlays
+  const msIn=qi('map-search-input');if(msIn){msIn.placeholder=t('search_ph');msIn.setAttribute('aria-label',t('search_ph'));}
+  const msCl=qi('ms-clear');if(msCl)msCl.setAttribute('aria-label',t('search_clear'));
+  if(map){updateMapTiles();renderMapPins();} // подписи карты тоже на выбранном языке
+  updateMapStatus();
   // Profile labels
   si('prof-sec-profile','prof_sec_profile');si('prof-sec-about','prof_sec_about');
   si('prof-lbl-name','prof_lbl_name');si('prof-lbl-city','prof_lbl_city');si('prof-lbl-age','prof_lbl_age');
@@ -1383,7 +1510,8 @@ const CAT_COLORS = {coffee:'#E8845A',walk:'#4A90E2',bar:'#9B59B6',sport:'#27AE60
 
 // ── STATE ─────────────────────────────────────────────────
 let user=null, myPin=null, allPins=[], mapFilter='all';
-let map=null, tileLayer=null, markers={}, clusterGroup=null;
+let map=null, markers={};
+let mapQuery='', selectedPinId=null, pinsLoadState='idle', _userLoc=null, _searchT=null;
 let pinDraft={};
 let gpsLat=null, gpsLng=null;
 let selectedCityReg=null;
@@ -1437,45 +1565,125 @@ function toggleDark(on){
   if(map) renderMapPins();
 }
 
-// ── MAP STYLE ─────────────────────────────────────────────
+// ── MAP STYLE: собственные векторные стили + 3D-глобус ─────
+// Тайлы и шрифты: OpenFreeMap (бесплатно, без ключей), схема OpenMapTiles, данные © OpenStreetMap.
+// 0 = Живая (яркая, как Snap Map), 1 = Чистая (минимализм), 2 = Классика (подробная, со всеми подписями)
 let mapStyle=parseInt(load('mapStyle')||'0')||0;
+const OFM='https://tiles.openfreemap.org';
+let _styleKey=null;
 
-// 0=Живая (Snapchat-style, Voyager — тёплая, чистая)
-// 1=Чистая (Positron — минималистичная, белая)
-// 2=Классика (OSM — стандартная)
-// Dark mode всегда заменяет на тёмные тайлы независимо от выбора
-const TILE_STYLES={
-  light:[
-    // Voyager — тёплые тона, чистые дороги, похож на Snap Map
-    {url:'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',   opts:{maxZoom:19,subdomains:'abcd',attribution:''}},
-    // Positron — ультраминималистичный, почти белый
-    {url:'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',             opts:{maxZoom:19,subdomains:'abcd',attribution:''}},
-    // OSM стандарт — fallback
-    {url:'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',                         opts:{maxZoom:19,subdomains:'abc',attribution:''}},
-  ],
-  dark:[
-    {url:'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',              opts:{maxZoom:19,subdomains:'abcd',attribution:''}},
-    {url:'https://{s}.basemaps.cartocdn.com/dark_matter_no_labels/{z}/{x}/{y}{r}.png', opts:{maxZoom:19,subdomains:'abcd',attribution:''}},
-    {url:'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png',         opts:{maxZoom:19,subdomains:'abcd',attribution:''}},
-  ]
+const MAP_PALETTES={
+  vivid:{
+    light:{land:'#E9ECE1',park:'#BFE4A6',wood:'#B4DB98',grass:'#CDEAB8',sand:'#F6EBC6',water:'#7FCBF6',waterLine:'#7FCBF6',
+      road:'#FFFFFF',roadMajor:'#FFFFFF',motorway:'#FFDF9A',rail:'#D3D0C7',bld:'#DCD6CA',bldTop:'#ECE6DB',border:'#B4AECB',
+      label:'#3B404C',labelSoft:'#7A8090',halo:'rgba(255,255,255,.92)',relief:.6},
+    dark:{land:'#161A23',park:'#1B3326',wood:'#193022',grass:'#1D3528',sand:'#29271F',water:'#0E2B49',waterLine:'#153C62',
+      road:'#262C38',roadMajor:'#303849',motorway:'#433D2E',rail:'#252A33',bld:'#1E2330',bldTop:'#2A3142',border:'#3B4358',
+      label:'#D7DDEB',labelSoft:'#8A93A8',halo:'rgba(10,12,18,.9)',relief:.4}
+  },
+  clean:{
+    light:{land:'#F5F5F3',park:'#E5EDE0',wood:'#E0E9DA',grass:'#E8EFE3',sand:'#F2EEE2',water:'#D0E1EC',waterLine:'#D0E1EC',
+      road:'#FFFFFF',roadMajor:'#FFFFFF',motorway:'#FFFFFF',rail:'#E4E3DF',bld:'#E9E8E4',bldTop:'#F2F1ED',border:'#C9C9D0',
+      label:'#54575F',labelSoft:'#9A9DA6',halo:'rgba(255,255,255,.95)',relief:.3},
+    dark:{land:'#111217',park:'#151B17',wood:'#141A15',grass:'#161C18',sand:'#1A1916',water:'#17212C',waterLine:'#1C2835',
+      road:'#1F2128',roadMajor:'#272A33',motorway:'#2B2E38',rail:'#1C1E24',bld:'#1A1C22',bldTop:'#23262E',border:'#34373F',
+      label:'#BAC0CB',labelSoft:'#6F7480',halo:'rgba(8,9,12,.92)',relief:.2}
+  }
 };
-
-// ── MAP TILES (light / dark) ──────────────────────────────
+function isDarkTheme(){return document.documentElement.getAttribute('data-theme')==='dark';}
+// Атмосфера вокруг глобуса; при приближении к городу плавно исчезает
+function mapSky(dark){
+  return dark
+    ?{'sky-color':'#0B1633','horizon-color':'#1D3363','fog-color':'#0C1222','sky-horizon-blend':.6,'horizon-fog-blend':.7,'fog-ground-blend':.9,
+      'atmosphere-blend':['interpolate',['linear'],['zoom'],0,1,5,1,7,0]}
+    :{'sky-color':'#7CC4FF','horizon-color':'#D9EEFF','fog-color':'#F2F8FF','sky-horizon-blend':.6,'horizon-fog-blend':.7,'fog-ground-blend':.9,
+      'atmosphere-blend':['interpolate',['linear'],['zoom'],0,1,5,1,7,0]};
+}
+// Минимум подписей: страны (глобус), города, районы. Без улиц, POI, номеров домов.
+function buildMapStyle(kind,dark){
+  const c=MAP_PALETTES[kind][dark?'dark':'light'];
+  const rawName=lang==='en'
+    ?['coalesce',['get','name:en'],['get','name_en'],['get','name:latin'],['get','name']]
+    :['coalesce',['get','name:ru'],['get','name:latin'],['get','name']];
+  // короче и чище: «Королевский район (Брюссель)» → «Королевский район», «Bruxelles - Brussel» → «Bruxelles»
+  const cutAt=(expr,sep)=>['let','s',expr,['case',['>',['index-of',sep,['var','s']],0],['slice',['var','s'],0,['index-of',sep,['var','s']]],['var','s']]];
+  const name=cutAt(cutAt(rawName,' ('),' - ');
+  const hasLocal=['has',lang==='en'?'name:en':'name:ru']; // районы — только с переводом, меньше шума
+  const FB=['Noto Sans Bold'];
+  const lin=(...a)=>['interpolate',['linear'],['zoom'],...a];
+  const exp=(...a)=>['interpolate',['exponential',1.6],['zoom'],...a];
+  const cls=(...v)=>['match',['get','class'],v,true,false];
+  const notTunnel=['!=',['get','brunnel'],'tunnel'];
+  const road=(id,minzoom,classes,color,width,extra={})=>({id,type:'line',source:'omt','source-layer':'transportation',minzoom,
+    filter:['all',cls(...classes),notTunnel],layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':color,'line-width':width,...extra}});
+  const label=(id,minzoom,maxzoom,classes,size,color,extra={})=>({id,type:'symbol',source:'omt','source-layer':'place',minzoom,maxzoom,
+    filter:extra.filter||cls(...classes),layout:{'text-field':name,'text-font':FB,'text-size':size,'text-max-width':8,'text-padding':6,...(({filter,...l})=>l)(extra)},
+    paint:{'text-color':color,'text-halo-color':c.halo,'text-halo-width':1.6,'text-halo-blur':.4}});
+  return {
+    version:8,name:'yama-'+kind+(dark?'-dark':''),
+    projection:{type:'globe'},
+    sky:mapSky(dark),
+    light:{anchor:'viewport',color:'#ffffff',intensity:dark?.3:.5,position:[1.3,210,35]},
+    glyphs:OFM+'/fonts/{fontstack}/{range}.pbf',
+    sources:{
+      omt:{type:'vector',url:OFM+'/planet'},
+      relief:{type:'raster',tiles:[OFM+'/natural_earth/ne2sr/{z}/{x}/{y}.png'],tileSize:256,maxzoom:6,
+        attribution:'<a href="https://www.naturalearthdata.com/" target="_blank">Natural Earth</a>'}
+    },
+    layers:[
+      {id:'land',type:'background',paint:{'background-color':c.land}},
+      // рельеф планеты на глобусе — исчезает к уровню города
+      {id:'relief',type:'raster',source:'relief',maxzoom:8,paint:{'raster-opacity':lin(0,c.relief,5,c.relief*.7,7.5,0),
+        'raster-saturation':dark?-.55:-.1,'raster-brightness-max':dark?.5:1}},
+      {id:'wood',type:'fill',source:'omt','source-layer':'landcover',filter:cls('wood','forest'),paint:{'fill-color':c.wood,'fill-opacity':lin(4,.35,10,.85)}},
+      {id:'grass',type:'fill',source:'omt','source-layer':'landcover',filter:cls('grass','farmland','wetland'),paint:{'fill-color':c.grass,'fill-opacity':lin(4,.25,10,.6)}},
+      {id:'sand',type:'fill',source:'omt','source-layer':'landcover',filter:cls('sand'),paint:{'fill-color':c.sand}},
+      {id:'park',type:'fill',source:'omt','source-layer':'park',paint:{'fill-color':c.park,'fill-opacity':lin(6,.4,12,1)}},
+      {id:'landuse-green',type:'fill',source:'omt','source-layer':'landuse',minzoom:11,
+        filter:cls('cemetery','pitch','grass','park','recreation_ground','garden'),paint:{'fill-color':c.park,'fill-opacity':.85}},
+      {id:'water',type:'fill',source:'omt','source-layer':'water',filter:notTunnel,paint:{'fill-color':c.water}},
+      {id:'waterway',type:'line',source:'omt','source-layer':'waterway',minzoom:9,filter:notTunnel,
+        layout:{'line-cap':'round'},paint:{'line-color':c.waterLine,'line-width':exp(9,.6,18,6)}},
+      road('road-path',15,['path','pedestrian'],c.road,exp(15,1,20,4),{'line-opacity':.7}),
+      road('road-minor',12.5,['minor','service','track'],c.road,exp(12.5,.5,15,3,20,16),{'line-opacity':lin(12.5,0,13.5,1)}),
+      road('road-mid',9,['secondary','tertiary'],c.roadMajor,exp(9,.5,13,2,16,7,20,22)),
+      road('road-major',6,['primary','trunk'],c.roadMajor,exp(6,.4,12,2.4,16,9,20,26)),
+      road('road-motorway',5,['motorway'],c.motorway,exp(5,.4,12,2.6,16,10,20,28)),
+      {id:'rail',type:'line',source:'omt','source-layer':'transportation',minzoom:13,filter:['all',cls('rail','transit'),notTunnel],
+        paint:{'line-color':c.rail,'line-width':exp(13,.6,18,2)}},
+      {id:'building-flat',type:'fill',source:'omt','source-layer':'building',minzoom:13,maxzoom:15,paint:{'fill-color':c.bld,'fill-opacity':lin(13,0,13.6,1)}},
+      // 3D-здания: видны объёмом при наклоне карты (кнопка «3D» или жест двумя пальцами)
+      {id:'building-3d',type:'fill-extrusion',source:'omt','source-layer':'building',minzoom:15,
+        filter:['!=',['get','hide_3d'],true],
+        paint:{'fill-extrusion-color':c.bldTop,'fill-extrusion-height':lin(15,0,15.6,['get','render_height']),
+          'fill-extrusion-base':['get','render_min_height'],'fill-extrusion-opacity':.92}},
+      {id:'border-country',type:'line',source:'omt','source-layer':'boundary',
+        filter:['all',['==',['get','admin_level'],2],['!=',['get','maritime'],1]],
+        paint:{'line-color':c.border,'line-width':lin(1,.5,6,1,10,1.4),'line-opacity':lin(1,.5,6,.8,12,.35),'line-dasharray':[2,2]}},
+      label('lbl-suburb',12.5,16.5,['suburb','quarter','neighbourhood'],lin(12.5,10,16,12),c.labelSoft,
+        {filter:['all',cls('suburb','quarter','neighbourhood'),hasLocal],'text-transform':'uppercase','text-letter-spacing':.12}),
+      label('lbl-town',9,14,['town'],lin(9,11,13,14),c.label),
+      label('lbl-city',3.5,13,['city'],lin(4,11,8,14,12,19),c.label,{'symbol-sort-key':['coalesce',['get','rank'],99]}),
+      label('lbl-country-major',1.2,6.5,['country'],lin(2,10,6,15),c.labelSoft,
+        {filter:['all',cls('country'),['<=',['coalesce',['get','rank'],9],2]],'text-transform':'uppercase','text-letter-spacing':.08,'text-max-width':7}),
+      label('lbl-country',3,6.5,['country'],lin(3,10,6,14),c.labelSoft,
+        {filter:['all',cls('country'),['>',['coalesce',['get','rank'],9],2]],'text-transform':'uppercase','text-letter-spacing':.08,'text-max-width':7})
+    ]
+  };
+}
+function currentStyleSpec(){
+  const dark=isDarkTheme();
+  if(mapStyle===2) return {key:'classic-'+(dark?'d':'l'),style:OFM+'/styles/'+(dark?'dark':'liberty')};
+  const kind=mapStyle===1?'clean':'vivid';
+  return {key:kind+'-'+(dark?'d':'l')+'-'+lang,style:buildMapStyle(kind,dark)};
+}
+// Имя сохранено: вызывается из applyTheme / setMapStyle / смены языка
 function updateMapTiles(){
-  if(!map||typeof L==='undefined') return;
-  const dark=load('dark')===true;
-  const s=TILE_STYLES[dark?'dark':'light'][mapStyle]||TILE_STYLES[dark?'dark':'light'][0];
-  if(tileLayer) map.removeLayer(tileLayer);
-  tileLayer=L.tileLayer(s.url,{...s.opts,crossOrigin:''});
-  // Fallback: если тайлы не грузятся (CDN недоступен) → переключаемся на OSM
-  tileLayer.on('tileerror',function(){
-    if(this._fallbackUsed) return;
-    this._fallbackUsed=true;
-    map.removeLayer(this);
-    tileLayer=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,subdomains:'abc',crossOrigin:''});
-    tileLayer.addTo(map);
-  });
-  tileLayer.addTo(map);
+  if(!map) return;
+  const s=currentStyleSpec();
+  if(s.key===_styleKey) return;
+  _styleKey=s.key;
+  map.setStyle(s.style,{diff:false});
 }
 
 function setMapStyle(n){
@@ -1511,32 +1719,10 @@ function goToMyLocation(){
       gpsLat=lat; gpsLng=lng;
 
       // Центрируем карту
-      map.setView([lat,lng],15,{animate:true});
+      map.flyTo({center:[lng,lat],zoom:Math.max(map.getZoom(),15.5),duration:1200,essential:true});
 
-      // Убираем старую точку
-      if(_locMarker) map.removeLayer(_locMarker);
-
-      // Рисуем синюю точку «я здесь» как в Google Maps
-      _locMarker=L.circleMarker([lat,lng],{
-        radius:9,
-        fillColor:'#4285F4',
-        fillOpacity:1,
-        color:'#fff',
-        weight:3,
-        pane:'markerPane'
-      }).addTo(map);
-
-      // Пульсирующий круг вокруг точки (точность GPS)
-      const acc=pos.coords.accuracy;
-      if(acc&&acc<500){
-        L.circle([lat,lng],{
-          radius:acc,
-          fillColor:'#4285F4',
-          fillOpacity:0.08,
-          color:'#4285F4',
-          weight:1
-        }).addTo(map);
-      }
+      // Точка «я здесь» + круг точности GPS (без накопления дублей)
+      setUserLocation(lat,lng,pos.coords.accuracy);
 
       btn.classList.remove('locating');
       btn.classList.add('located');
@@ -1873,7 +2059,8 @@ function enterLocationPicker(){
   const cc=user&&CITIES[user.city];
   const startLat=pinDraft.manualLat||(cc?.lat)||50.85;
   const startLng=pinDraft.manualLng||(cc?.lng)||4.35;
-  map.setView([startLat,startLng],14,{animate:true});
+  // выбор места — плоская карта без поворота, чтобы точка под прицелом была точной
+  map.easeTo({center:[startLng,startLat],zoom:15,pitch:0,bearing:0,duration:700});
   // Обновляем эмодзи пина в crosshair
   const pinEmoji=document.getElementById('loc-pin-emoji');
   if(pinEmoji) pinEmoji.textContent=pinDraft.emoji||'📍';
@@ -1923,11 +2110,15 @@ function getPinCoords(){
 // ── MAP ───────────────────────────────────────────────────
 function initMap(){
   if(map) return; // уже инициализирована
-  if(typeof L==='undefined'){
-    // Leaflet JS не загрузился с CDN — пробуем ещё раз
+  if(typeof maplibregl==='undefined'){
+    // MapLibre не загрузился с основного CDN — одна попытка с резервного
+    if(initMap._retried){mapUnavailable();return;}
+    initMap._retried=true;
+    const css=document.createElement('link');css.rel='stylesheet';
+    css.href='https://cdn.jsdelivr.net/npm/maplibre-gl@5.24.0/dist/maplibre-gl.css';document.head.appendChild(css);
     const s=document.createElement('script');
-    s.src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.min.js';
-    s.onload=()=>setTimeout(initMap,100);
+    s.src='https://cdn.jsdelivr.net/npm/maplibre-gl@5.24.0/dist/maplibre-gl.js';
+    s.onload=()=>setTimeout(initMap,50);s.onerror=mapUnavailable;
     document.head.appendChild(s);
     return;
   }
@@ -1937,40 +2128,84 @@ function initMap(){
   mapEl.style.cssText=`position:absolute;top:0;left:0;width:100%;height:${Math.max(mapH,300)}px`;
 
   const cc=CITIES[user?.city]||CITIES['Брюссель'];
-  const center=gpsLat?[gpsLat,gpsLng]:[cc.lat,cc.lng];
+  const home=gpsLat?[gpsLng,gpsLat]:[cc.lng,cc.lat]; // MapLibre: [долгота, широта]
+  // Первый запуск на устройстве: эффектный облёт с орбиты к городу
+  const intro=!load('globeIntroSeen')&&!window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const s=currentStyleSpec();_styleKey=s.key;
   try{
-    map=L.map('map',{
-      zoomControl:false,       // убираем +/- кнопки — зум пинчем и даблкликом
+    map=new maplibregl.Map({
+      container:'map',style:s.style,
+      center:intro?[home[0]-18,home[1]-8]:home,
+      zoom:intro?1.5:MAP_CITY_ZOOM,
       attributionControl:false,
-      doubleClickZoom:true,    // даблклик для зума как в Google Maps
-      zoomSnap:0,
-      zoomDelta:1,
-      wheelPxPerZoomLevel:40,
-      tap:true,
-      tapTolerance:15,
-      bounceAtZoomLimits:false,
-    }).setView(center,14);
-    updateMapTiles();
-    // Нет zoom-контрола — зум через пинч (мобильный) и даблклик (ПК)
-    if(gpsLat) L.circleMarker([gpsLat,gpsLng],{radius:7,color:'#fff',weight:3,fillColor:'#4A90E2',fillOpacity:1}).addTo(map);
-    // Zenly-style cluster group
-    if(typeof L.markerClusterGroup!=='undefined'){
-      clusterGroup=L.markerClusterGroup({
-        maxClusterRadius:65,
-        iconCreateFunction:createClusterIcon,
-        spiderfyOnMaxZoom:true,
-        showCoverageOnHover:false,
-        disableClusteringAtZoom:17,
-        animate:true,
-      });
-      map.addLayer(clusterGroup);
+      maxPitch:65,dragRotate:true,touchPitch:true,pitchWithRotate:true,
+      renderWorldCopies:false,fadeDuration:200
+    });
+  }catch(e){console.error('Map init error:',e);map=null;mapUnavailable();return;}
+  map.addControl(new maplibregl.AttributionControl({compact:true}),'bottom-left');
+  map.on('style.load',onMapStyleLoad);
+  map.on('moveend',scheduleMarkerLayout);
+  map.on('rotate',updateMapControls);map.on('pitch',updateMapControls);map.on('zoomend',updateMapControls);
+  map.on('error',e=>console.warn('[map]',e?.error?.message||e));
+  map.on('load',()=>{
+    if(intro){
+      save('globeIntroSeen',true);
+      setTimeout(()=>map&&map.flyTo({center:home,zoom:MAP_CITY_ZOOM,duration:3400,curve:1.7,essential:true}),500);
     }
-    [200,600,1200].forEach(ms=>setTimeout(()=>{if(map)map.invalidateSize()},ms));
-    document.querySelectorAll('.msp-row').forEach((r,i)=>r.classList.toggle('active',i===mapStyle));
-  }catch(e){console.error('Map init error:',e);map=null;}
+  });
+  if(gpsLat) setUserLocation(gpsLat,gpsLng);
+  [200,600,1200].forEach(ms=>setTimeout(()=>{if(map)map.resize()},ms));
+  document.querySelectorAll('.msp-row').forEach((r,i)=>r.classList.toggle('active',i===mapStyle));
+  updateMapControls();
+}
+const MAP_CITY_ZOOM=13.6;
+// После загрузки/смены стиля: глобус, атмосфера, слои поверх карты
+function onMapStyleLoad(){
+  if(!map) return;
+  try{map.setProjection({type:'globe'})}catch(e){}
+  try{map.setSky(mapSky(isDarkTheme()))}catch(e){}
+  updateAccuracyCircle();
+}
+function mapUnavailable(){
+  const el=document.getElementById('map-status');
+  if(!el) return;
+  el.className='map-status show error';
+  el.innerHTML=`<span>⚠️ ${esc(t('map_unsupported'))}</span>`;
+}
+// Кнопки: 3D-наклон, глобус, компас
+let _beforeGlobe=null;
+function toggle3D(){
+  if(!map) return;
+  if(map.getPitch()>10) map.easeTo({pitch:0,bearing:0,duration:700});
+  else map.easeTo({pitch:58,zoom:Math.max(map.getZoom(),16),duration:900,essential:true});
+  if(tg) tg.HapticFeedback?.selectionChanged();
+}
+function toggleGlobe(){
+  if(!map) return;
+  if(map.getZoom()>4){
+    _beforeGlobe={center:map.getCenter(),zoom:map.getZoom()};
+    map.flyTo({zoom:1.6,pitch:0,bearing:0,duration:2200,essential:true});
+  }else{
+    const cc=CITIES[user?.city]||CITIES['Брюссель'];
+    map.flyTo({center:_beforeGlobe?_beforeGlobe.center:[cc.lng,cc.lat],zoom:_beforeGlobe?_beforeGlobe.zoom:MAP_CITY_ZOOM,duration:2400,essential:true});
+  }
+  if(tg) tg.HapticFeedback?.selectionChanged();
+}
+function resetNorth(){if(map) map.easeTo({bearing:0,pitch:0,duration:600});}
+function updateMapControls(){
+  if(!map) return;
+  const b=map.getBearing(),p=map.getPitch();
+  document.getElementById('map-3d-btn')?.classList.toggle('on',p>10);
+  document.getElementById('map-globe-btn')?.classList.toggle('on',map.getZoom()<=4);
+  const c=document.getElementById('map-compass');
+  if(c){
+    c.classList.toggle('show',Math.abs(b)>1.5);
+    const svg=c.querySelector('svg');if(svg)svg.style.transform=`rotate(${-b}deg)`;
+  }
 }
 
 async function loadPins(){
+  pinsLoadState='loading';updateMapStatus();
   // Если API настроен — грузим реальные данные
   if(API){
     // Грузим ВСЕ пины — auth опциональна, сервер сам разберётся
@@ -1984,7 +2219,11 @@ async function loadPins(){
         lng: p.lng??CITIES[p.city]?.lng??4.3517,
         cat: p.category||p.cat||'other',
         emoji: p.emoji||'✨',
+        // сервер отдаёт description/time_text — карточка и поиск читают desc/time
+        desc: p.desc??p.description??'',
+        time: p.time??p.time_text??'',
       }));
+      pinsLoadState='ok';updateMapStatus();
       const mine=allPins.find(p=>p.isMine||p.id==='mine');
       if(mine){myPin={...mine,id:'mine'};save('myPin',myPin);}
       renderMapPins();renderList();
@@ -1992,115 +2231,294 @@ async function loadPins(){
     }
   }
   // Нет API или сервер не ответил — только своя метка из localStorage
+  pinsLoadState=API?'error':'ok';
   allPins=myPin?[{...myPin,id:'mine'}]:[];
+  updateMapStatus();
   renderMapPins();renderList();
 }
 
-function createClusterIcon(cluster){
-  const children=cluster.getAllChildMarkers();
-  const n=children.length;
-  const show=Math.min(n,3);
-  const pins=children.slice(0,show).map(m=>m.options._pin||{});
-  const isDark=load('dark')!==false;
-  const circleBg=isDark?'#1E1E2A':'#FFFFFF';
-  const borderCol='rgba(255,255,255,0.9)';
-  const R=34;
-  const offsets=show===1?[[0,0]]:show===2?[[0,6],[17,0]]:[[7,0],[0,14],[19,7]];
-  const cw=show===1?R:show===2?R+17:R+23;
-  const ch=show===1?R:show===2?R+6:R+18;
-  let circles='';
-  pins.forEach((p,i)=>{
-    const col=CAT_COLORS[p.cat]||'#95A5A6';
-    const letter=(p.name||'?').charAt(0).toUpperCase();
-    const [ox,oy]=offsets[i]||[0,0];
-    circles+=`<div style="position:absolute;left:${ox}px;top:${oy}px;width:${R}px;height:${R}px;border-radius:50%;background:${circleBg};border:2.5px solid ${col};box-shadow:0 0 0 2.5px ${col}25,0 2px 8px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:${col}">${letter}</div>`;
-  });
-  const badge=`<div style="position:absolute;bottom:-4px;right:-8px;background:#E8845A;color:#fff;border-radius:10px;font-size:10px;font-weight:800;padding:2px 6px;border:2px solid ${isDark?'#0D0D14':'#fff'};white-space:nowrap;line-height:1.4;box-shadow:0 2px 8px rgba(232,132,90,.4)">${n>99?'99+':n}</div>`;
-  return L.divIcon({
-    html:`<div style="position:relative;width:${cw}px;height:${ch}px;filter:drop-shadow(0 3px 8px rgba(0,0,0,.28))">${circles}${badge}</div>`,
-    className:'',
-    iconSize:[cw+18,ch+18],
-    iconAnchor:[(cw+18)/2,(ch+18)/2]
-  });
-}
+// ── МАРКЕРЫ И КЛАСТЕРЫ (HTML-маркеры MapLibre + своя кластеризация по экрану) ──
+const CLUSTER_PX=58;        // метки ближе этого расстояния на экране объединяются
+const CLUSTER_OFF_ZOOM=16.5; // с этого зума кластеров нет — все аватары по отдельности
+let _clusterMarkers={}, _layoutT=null;
 function renderMapPins(){
-  if(clusterGroup) clusterGroup.clearLayers();
   Object.values(markers).forEach(m=>{try{m.remove()}catch(e){}});
   markers={};
   allPins.forEach(pin=>{
-    if(mapFilter!=='all'&&pin.cat!==mapFilter)return;
+    if(!pinMatches(pin))return;
     addMapPin(pin);
   });
+  layoutMarkers();
+  updateMapOverlay();
 }
 function addMapPin(pin){
-  if(!map) return;
+  if(!map||!isFinite(pin.lat)||!isFinite(pin.lng)) return;
   const isMine=pin.id==='mine';
-  const colHex=isMine?'#E8845A':(CAT_COLORS[pin.cat]||'#95A5A6');
-  const isDark=load('dark')!==false;
-
-  const sz=isMine?48:42;
-  const tailH=8;
-  const totalH=sz+tailH+2; // extra 2px for glow overflow
-
-  // ── Avatar content: photo → first letter → emoji fallback ──
-  let inner;
-  const photo=isMine?load('photo'):pin.photo;
-  if(photo){
-    inner=`<img src="${photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block">`;
-  } else {
-    // Show first letter of user name — large, bold, category-colored
-    const letter=(pin.name||'?').charAt(0).toUpperCase();
-    const letterColor=isMine?'#fff':colHex;
-    const fontSize=Math.round(sz*0.42);
-    inner=`<span style="font-size:${fontSize}px;font-weight:800;color:${letterColor};line-height:1;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">${letter}</span>`;
-  }
-
-  // ── Circle background: white(light)/dark(dark) for non-mine; gradient for mine ──
-  const circleBg=isMine
-    ?'linear-gradient(135deg,#E8845A 0%,#F4A574 100%)'
-    :(isDark?'#161620':'#FFFFFF');
-
-  // ── Colored ring + glow = Zenly signature ──
-  const glowColor=colHex+'45'; // ~27% opacity
-  const ringSize=isMine?4:3;
-  const circleS=[
-    `width:${sz}px`,`height:${sz}px`,`border-radius:50%`,
-    `background:${circleBg}`,
-    `border:${ringSize}px solid ${colHex}`,
-    `box-shadow:0 0 0 ${isMine?5:3}px ${glowColor},0 4px 18px rgba(0,0,0,.32),0 1px 4px rgba(0,0,0,.18)`,
-    `display:flex`,`align-items:center`,`justify-content:center`,
-    `overflow:hidden`,`flex-shrink:0`,
-  ].join(';');
-
-  // ── Tail ──
-  const tailS=[
-    `width:0`,`height:0`,
-    `border-left:5px solid transparent`,`border-right:5px solid transparent`,
-    `border-top:${tailH}px solid ${colHex}`,
-    `margin-top:-1px`,`flex-shrink:0`,
-  ].join(';');
-
-  const html=`<div style="display:flex;flex-direction:column;align-items:center;cursor:pointer;filter:drop-shadow(0 2px 6px rgba(0,0,0,.28))"><div style="${circleS}">${inner}</div><div style="${tailS}"></div></div>`;
-
-  const m=L.marker([pin.lat,pin.lng],{
-    icon:L.divIcon({
-      html,
-      className:'',
-      iconSize:[sz+10,totalH],    // +10 for glow ring overflow
-      iconAnchor:[(sz+10)/2,totalH]
-    }),
-    _pin:pin,
-    zIndexOffset:isMine?1000:0
-  });
-  m.on('click',()=>openDetailObj(pin));
-  if(isMine||!clusterGroup){m.addTo(map);}else{clusterGroup.addLayer(m);}
+  const el=document.createElement('div');
+  el.className='mk-host';
+  el.setAttribute('role','button');
+  el.setAttribute('aria-label',pin.name||'');
+  el.innerHTML=pinMarkerHtml(pin);
+  el.style.zIndex=isMine?1000:1;
+  // Тап по маркеру: выделить, аккуратно сдвинуть карту под шторку и открыть карточку
+  el.addEventListener('click',e=>{e.stopPropagation();focusPin(pin,{keepZoom:true});});
+  const m=new maplibregl.Marker({element:el,anchor:'bottom'}).setLngLat([pin.lng,pin.lat]);
+  m._pin=pin;m._on=false;
   markers[pin.id]=m;
+  // своя метка никогда не прячется в кластер
+  if(isMine){m.addTo(map);m._on=true;}else scheduleMarkerLayout();
+}
+// Маркер: аватар (фото → буква) в кольце цвета категории + бейдж-иконка категории
+function pinMarkerHtml(pin){
+  const isMine=pin.id==='mine';
+  const col=isMine?'#E8845A':(CAT_COLORS[pin.cat]||'#95A5A6');
+  const photo=pinPhoto(pin);
+  const inner=photo?`<img src="${esc(photo)}" alt="" draggable="false">`:esc((pin.name||'?').charAt(0).toUpperCase());
+  const sel=selectedPinId!=null&&String(pin.id)===selectedPinId;
+  return `<div class="mk${isMine?' mine':''}${sel?' sel':''}" style="--c:${col}">`
+    +(isMine?`<div class="mk-you">${esc(t('you_label'))}</div>`:'')
+    +`<div class="mk-ring"><div class="mk-av">${inner}</div><div class="mk-badge">${esc(pin.emoji||'✨')}</div></div>`
+    +`<div class="mk-tail"></div></div>`;
+}
+function clusterHtml(pins){
+  const avs=pins.slice(0,3).map(p=>{
+    const col=p.id==='mine'?'#E8845A':(CAT_COLORS[p.cat]||'#95A5A6');
+    const ph=pinPhoto(p);
+    const inner=ph?`<img src="${esc(ph)}" alt="">`:esc((p.name||'?').charAt(0).toUpperCase());
+    return `<div class="cl-av" style="--c:${col}">${inner}</div>`;
+  }).join('');
+  const n=pins.length;
+  return `<div class="cl"><div class="cl-stack">${avs}</div><div class="cl-n">${n>99?'99+':n}</div></div>`;
+}
+function scheduleMarkerLayout(){clearTimeout(_layoutT);_layoutT=setTimeout(layoutMarkers,30);}
+// Жадная кластеризация в экранных координатах; пересчёт после каждого движения карты
+function layoutMarkers(){
+  if(!map) return;
+  const z=map.getZoom();
+  const groups=[],free=[];
+  Object.values(markers).forEach(m=>{
+    const p=m._pin;
+    if(p.id==='mine') return;
+    if(z>=CLUSTER_OFF_ZOOM||String(p.id)===selectedPinId){free.push(m);return;}
+    const pt=map.project([p.lng,p.lat]);
+    const g=groups.find(g=>Math.hypot(g.x-pt.x,g.y-pt.y)<CLUSTER_PX);
+    if(g) g.members.push(m); else groups.push({x:pt.x,y:pt.y,members:[m]});
+  });
+  const keep=new Set();
+  groups.forEach(g=>{
+    if(g.members.length===1){free.push(g.members[0]);return;}
+    const pins=g.members.map(m=>m._pin);
+    const key=pins.map(p=>String(p.id)).sort().join(',');
+    keep.add(key);
+    g.members.forEach(m=>{if(m._on){m.remove();m._on=false;}});
+    if(!_clusterMarkers[key]){
+      const lng=pins.reduce((s,p)=>s+p.lng,0)/pins.length,lat=pins.reduce((s,p)=>s+p.lat,0)/pins.length;
+      const el=document.createElement('div');
+      el.className='cl-host';el.setAttribute('role','button');
+      el.innerHTML=clusterHtml(pins);
+      el.addEventListener('click',e=>{e.stopPropagation();zoomToCluster(pins);});
+      _clusterMarkers[key]=new maplibregl.Marker({element:el,anchor:'center'}).setLngLat([lng,lat]).addTo(map);
+    }
+  });
+  Object.keys(_clusterMarkers).forEach(k=>{if(!keep.has(k)){_clusterMarkers[k].remove();delete _clusterMarkers[k];}});
+  free.forEach(m=>{if(!m._on){m.addTo(map);m._on=true;}});
+}
+function zoomToCluster(pins){
+  if(!map) return;
+  const b=new maplibregl.LngLatBounds();
+  pins.forEach(p=>b.extend([p.lng,p.lat]));
+  map.fitBounds(b,{padding:{top:180,bottom:250,left:60,right:80},maxZoom:17,duration:900,essential:true});
+  if(tg) tg.HapticFeedback?.selectionChanged();
 }
 function filterMap(cat,el){
   mapFilter=cat;
   document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
   el.classList.add('active');
+  try{el.scrollIntoView({inline:'center',block:'nearest',behavior:'smooth'})}catch(e){}
+  if(tg) tg.HapticFeedback?.selectionChanged();
   renderMapPins();
+}
+
+// ── MAP UI: поиск, выделение, лента результатов, состояния ──
+function pinCatLabel(p){const k='cat_'+p.cat,v=t(k);return v!==k?v:(p.catLabel||p.cat||'');}
+function pinTime(p){return p.timeKey?t(p.timeKey):(p.time||p.time_text||'');}
+function pinPhoto(p){return p.id==='mine'?load('photo'):(p.photo||null);}
+function normQ(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,' ').trim();}
+// Клиентский поиск по уже загруженным меткам + фильтр категории (API не меняется)
+function pinMatches(p){
+  if(mapFilter!=='all'&&p.cat!==mapFilter) return false;
+  if(!mapQuery) return true;
+  const hay=normQ([p.name,p.desc,p.city,CITIES[p.city]?.en,pinCatLabel(p),p.catLabel].join(' '));
+  return mapQuery.split(' ').every(w=>hay.includes(w));
+}
+function visiblePins(){return allPins.filter(pinMatches);}
+function onMapSearch(v){
+  document.getElementById('ms-clear')?.classList.toggle('show',!!v);
+  clearTimeout(_searchT);
+  _searchT=setTimeout(()=>{mapQuery=normQ(v);renderMapPins();},140);
+}
+function onMapSearchKey(e){
+  if(e.key==='Enter'){e.preventDefault();clearTimeout(_searchT);mapQuery=normQ(e.target.value);renderMapPins();e.target.blur();fitToVisiblePins();}
+  else if(e.key==='Escape'){clearMapSearch();e.target.blur();}
+}
+function clearMapSearch(){
+  const inp=document.getElementById('map-search-input');
+  if(inp) inp.value='';
+  document.getElementById('ms-clear')?.classList.remove('show');
+  clearTimeout(_searchT);mapQuery='';renderMapPins();
+}
+function resetMapFilters(){
+  const inp=document.getElementById('map-search-input');
+  if(inp) inp.value='';
+  document.getElementById('ms-clear')?.classList.remove('show');
+  clearTimeout(_searchT);mapQuery='';
+  filterMap('all',document.getElementById('chip-all'));
+}
+// Отступы для fitBounds, которые гарантированно влезают в контейнер карты
+function safePad(top,bottom,left,right){
+  const el=map.getContainer(),W=el.clientWidth||400,H=el.clientHeight||700;
+  const ky=Math.min(1,(H*.7)/(top+bottom)),kx=Math.min(1,(W*.7)/(left+right));
+  return {top:top*ky,bottom:bottom*ky,left:left*kx,right:right*kx};
+}
+function fitToVisiblePins(){
+  if(!map) return;
+  const vis=visiblePins().filter(p=>isFinite(p.lat)&&isFinite(p.lng));
+  if(!vis.length) return;
+  if(vis.length===1){focusPin(vis[0],{open:false});return;}
+  const b=new maplibregl.LngLatBounds();
+  vis.forEach(p=>b.extend([p.lng,p.lat]));
+  map.fitBounds(b,{padding:safePad(170,240,40,70),maxZoom:16,duration:900,essential:true});
+}
+// Плавно показать метку: на телефоне — над шторкой, на ПК — правее боковой панели
+function focusPin(p,opts={}){
+  if(!map||!isFinite(p.lat)||!isFinite(p.lng)) return;
+  const open=opts.open!==false;
+  const cur=map.getZoom();
+  // с орбиты/издалека — сразу к улицам; иначе сохраняем масштаб пользователя
+  const z=(opts.keepZoom&&cur>=12)?cur:Math.max(cur,CLUSTER_OFF_ZOOM+.5);
+  if(open) openDetailObj(p); else selectPin(p.id);
+  let off=[0,0];
+  if(open){
+    if(window.matchMedia('(min-width:768px)').matches){off=[218,0];} // шторка слева, 420px
+    else{
+      const H=map.getContainer().clientHeight||window.innerHeight;
+      const sheetH=document.getElementById('detail-sheet')?.offsetHeight||H*.5;
+      const topUI=document.querySelector('.map-top')?.offsetHeight||110;
+      const tipY=Math.max(topUI+70,(topUI+H-sheetH)/2+28); // +28: аватар над кончиком хвоста
+      off=[0,Math.round(tipY-H/2)];
+    }
+  }
+  map.flyTo({center:[p.lng,p.lat],zoom:z,offset:off,duration:(opts.keepZoom&&cur>=12)?450:1100,essential:true});
+}
+function selectPin(id){
+  const prev=selectedPinId;
+  selectedPinId=id==null?null:String(id);
+  if(prev===selectedPinId) return;
+  [prev,selectedPinId].forEach(pid=>{
+    if(pid==null) return;
+    const m=markers[pid];
+    if(!m) return;
+    const el=m.getElement();
+    el.innerHTML=pinMarkerHtml(m._pin);
+    el.style.zIndex=pid===selectedPinId?3000:(pid==='mine'?1000:1);
+  });
+  scheduleMarkerLayout(); // выбранная метка не прячется в кластер
+  document.querySelectorAll('#map-results .rc').forEach(c=>c.classList.toggle('sel',c.dataset.pinId===selectedPinId));
+}
+// Точка «я здесь» (HTML-маркер) + круг точности GPS (слой карты, переживает смену стиля)
+function setUserLocation(lat,lng,acc){
+  if(!map) return;
+  _userLoc={lat,lng,acc:acc||0};
+  if(_locMarker){_locMarker.setLngLat([lng,lat]);}
+  else{
+    const el=document.createElement('div');el.className='me-dot';
+    _locMarker=new maplibregl.Marker({element:el,anchor:'center'}).setLngLat([lng,lat]).addTo(map);
+    el.style.zIndex=0;
+  }
+  updateAccuracyCircle();
+}
+function accuracyGeoJSON(){
+  const u=_userLoc;
+  if(!u||!u.acc||u.acc>=500) return {type:'FeatureCollection',features:[]};
+  const pts=[],n=64,k=Math.cos(u.lat*Math.PI/180);
+  for(let i=0;i<=n;i++){
+    const a=2*Math.PI*i/n;
+    pts.push([u.lng+u.acc*Math.sin(a)/(111320*k),u.lat+u.acc*Math.cos(a)/111320]);
+  }
+  return {type:'FeatureCollection',features:[{type:'Feature',properties:{},geometry:{type:'Polygon',coordinates:[pts]}}]};
+}
+function updateAccuracyCircle(){
+  if(!map) return;
+  try{
+    const data=accuracyGeoJSON();
+    const src=map.getSource('me-acc');
+    if(src){src.setData(data);return;}
+    map.addSource('me-acc',{type:'geojson',data});
+    map.addLayer({id:'me-acc-fill',type:'fill',source:'me-acc',paint:{'fill-color':'#4285F4','fill-opacity':.1}});
+    map.addLayer({id:'me-acc-line',type:'line',source:'me-acc',paint:{'line-color':'#4285F4','line-opacity':.35,'line-width':1}});
+  }catch(e){/* стиль ещё грузится — слой добавит onMapStyleLoad */}
+}
+// Расстояние в метрах (для сортировки ленты результатов)
+function distM(a,b){
+  const R=6371000,r=Math.PI/180,dLat=(b.lat-a.lat)*r,dLng=(b.lng-a.lng)*r;
+  const h=Math.sin(dLat/2)**2+Math.cos(a.lat*r)*Math.cos(b.lat*r)*Math.sin(dLng/2)**2;
+  return 2*R*Math.asin(Math.sqrt(h));
+}
+function updateMapStatus(){
+  const el=document.getElementById('map-status');
+  if(!el) return;
+  if(pinsLoadState==='loading'&&!allPins.length){
+    el.className='map-status show loading';
+    el.innerHTML=`<span class="spin"></span><span>${esc(t('pins_loading'))}</span>`;
+  }else if(pinsLoadState==='error'){
+    el.className='map-status show error';
+    el.innerHTML=`<span>⚠️ ${esc(t('pins_err'))}</span><button type="button">${esc(t('retry'))}</button>`;
+    el.querySelector('button').addEventListener('click',()=>loadPins());
+  }else{el.className='map-status';el.innerHTML='';}
+}
+function mapEmptyCard(icon,title,sub,cta,onClick){
+  const d=document.createElement('div');d.className='mx';
+  d.innerHTML=`<div class="mx-ic">${icon}</div><div class="mx-txt"><div class="mx-t">${esc(title)}</div><div class="mx-s">${esc(sub)}</div></div><button type="button" class="mx-btn">${esc(cta)}</button>`;
+  d.querySelector('button').addEventListener('click',onClick);
+  return d;
+}
+function resultCard(p){
+  const b=document.createElement('button');
+  b.type='button';
+  b.className='rc'+(String(p.id)===selectedPinId?' sel':'');
+  b.dataset.pinId=String(p.id);
+  b.style.setProperty('--c',p.id==='mine'?'#E8845A':(CAT_COLORS[p.cat]||'#95A5A6'));
+  const ph=pinPhoto(p);
+  const inner=ph?`<img src="${esc(ph)}" alt="" loading="lazy">`:esc((p.name||'?').charAt(0).toUpperCase());
+  const sub=[pinTime(p),p.desc].filter(Boolean).join(' · ');
+  b.innerHTML=`<div class="rc-av"><div class="rc-av-in">${inner}</div></div>`
+    +`<div class="rc-body"><div class="rc-top"><span class="rc-name">${esc(p.name||'')}</span>${p.age?`<span class="rc-age">${esc(t('age_years',p.age))}</span>`:''}</div>`
+    +`<div class="rc-cat">${esc(p.emoji||'✨')} ${esc(pinCatLabel(p))}</div>`
+    +(sub?`<div class="rc-sub">${esc(sub)}</div>`:'')+`</div>`;
+  b.addEventListener('click',()=>focusPin(p));
+  return b;
+}
+// Лента внизу: результаты поиска/фильтра, «ничего не нашлось» или «пока тихо»
+function updateMapOverlay(){
+  const screen=document.getElementById('map-screen');
+  const strip=document.getElementById('map-results');
+  const cnt=document.getElementById('ms-count');
+  if(!screen||!strip) return;
+  const filtering=!!mapQuery||mapFilter!=='all';
+  const vis=visiblePins();
+  if(cnt){cnt.textContent=vis.length;cnt.classList.toggle('show',filtering);}
+  const worldEmpty=pinsLoadState==='ok'&&allPins.length===0;
+  const show=filtering||worldEmpty;
+  screen.classList.toggle('has-results',show);
+  strip.innerHTML='';
+  if(!show) return;
+  if(!filtering){strip.appendChild(mapEmptyCard('🌙',t('map_empty'),t('map_empty_sub'),t('map_empty_cta'),()=>openCreate()));return;}
+  if(!vis.length){strip.appendChild(mapEmptyCard('🔍',t('no_results'),t('no_results_sub'),t('reset_filters'),resetMapFilters));return;}
+  const c=map?map.getCenter():null;
+  const list=[...vis];
+  if(c) list.sort((a,b)=>distM(c,a)-distM(c,b));
+  list.slice(0,30).forEach(p=>strip.appendChild(resultCard(p)));
+  strip.scrollLeft=0;
 }
 
 // ── MATCHES ───────────────────────────────────────────────
@@ -2312,29 +2730,38 @@ function updateReqBadge(){
 // ── DETAIL ────────────────────────────────────────────────
 function openDetailObj(pin){
   const isMine=pin.id==='mine';
-  const col=CAT_COLORS[pin.cat]||'#95A5A6';
-  // Безопасный аватар: фото или первая буква имени (экранируем имя)
-  const initials=esc(pin.name||'?').charAt(0);
-  const myPhoto=isMine?load('photo'):pin.photo;const ph=myPhoto?`<img src="${esc(myPhoto)}" style="width:100%;height:100%;object-fit:cover">`:`${initials}`;
-  const avatarCls=myPhoto?'detail-avatar has-photo':'detail-avatar';
-  const detailLabel=esc(t('cat_'+pin.cat)||pin.catLabel||pin.cat);
-  const detailTime=esc(pin.timeKey?t(pin.timeKey):(pin.time||''));
+  selectPin(pin.id);
+  const col=isMine?'#E8845A':(CAT_COLORS[pin.cat]||'#95A5A6');
+  const myPhoto=pinPhoto(pin);
+  const initial=esc((pin.name||'?').charAt(0).toUpperCase());
+  const detailLabel=esc(pinCatLabel(pin));
+  const detailTime=esc(pinTime(pin));
   const cityDisplay=esc(lang==='en'?(CITIES[pin.city]?.en||pin.city):pin.city);
   const pinIdStr=String(pin.id); // всегда строка для data-атрибута
-  document.getElementById('detail-body').innerHTML=`
-    <div class="detail-cat-badge" style="background:${col}18;color:${col}">${esc(pin.emoji)} ${detailLabel}</div>
-    <div class="detail-name-row">
-      <div class="${avatarCls}" id="detail-avatar-el">${ph}</div>
-      <div><div class="detail-name">${esc(pin.name||'')}</div><div class="detail-age">${t('age_years',pin.age)} · 📍 ${cityDisplay}</div></div>
-    </div>
-    <div class="detail-meta">
-      <span class="detail-tag">⏰ ${detailTime}</span>
-      <span class="detail-tag">🛡 ${t('addr_hidden')}</span>
-      ${isMine?`<span class="detail-tag" style="background:var(--primary-light);color:var(--primary)">👤 ${t('its_you')}</span>`:''}
+  const nameH=esc(pin.name||'');
+  const subH=`${pin.age?esc(t('age_years',pin.age))+' · ':''}📍 ${cityDisplay}`;
+  const catPill=`<span class="dc-cat">${esc(pin.emoji||'✨')} ${detailLabel}</span>`;
+  // Реальное фото — крупной обложкой (тап → полный размер); без фото — аватар с инициалом
+  const head=myPhoto
+    ?`<div class="dc-cover" id="detail-avatar-el" role="button" tabindex="0" aria-label="${esc(t('photo_open'))}">
+        <img src="${esc(myPhoto)}" alt="">
+        <div class="dc-cover-top">${catPill}<span class="dc-zoom"><svg viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></span></div>
+        <div class="dc-cover-id"><div class="dc-name">${nameH}</div><div class="dc-sub">${subH}</div></div>
+      </div>`
+    :`<div class="dc-head"><div class="dc-av"><div class="dc-av-in">${initial}</div></div>
+        <div class="dc-id">${catPill}<div class="dc-name">${nameH}</div><div class="dc-sub">${subH}</div></div>
+      </div>`;
+  const body=document.getElementById('detail-body');
+  body.style.setProperty('--c',col);
+  body.innerHTML=`${head}
+    <div class="dc-facts">
+      ${detailTime?`<div class="dc-fact"><span class="dc-fact-ic">⏰</span><span>${detailTime}</span></div>`:''}
+      <div class="dc-fact"><span class="dc-fact-ic">🛡</span><span>${esc(t('addr_hidden'))}</span></div>
+      ${isMine?`<div class="dc-fact you"><span class="dc-fact-ic">👤</span><span>${esc(t('its_you'))}</span></div>`:''}
     </div>
     ${pin.desc
-      ?`<div class="detail-desc">${esc(pin.desc)}</div>`
-      :`<div class="detail-desc" style="color:var(--text2);font-style:italic">${t('no_desc')}</div>`}
+      ?`<div class="dc-desc">${esc(pin.desc)}</div>`
+      :`<div class="dc-desc empty">${esc(t('no_desc'))}</div>`}
     ${isMine
       ?`<button class="interest-btn" style="background:var(--primary-light);color:var(--primary)" id="del-pin-btn">${t('del_my_pin')}</button>`
       :`<button class="interest-btn" id="interest-btn-detail" data-pin-id="${esc(pinIdStr)}">${t('interest_btn')}</button>
@@ -2355,7 +2782,7 @@ function openDetailObj(pin){
   sheet('detail',true);
   setBackButton(closeDetail);
 }
-function closeDetail(){sheet('detail',false);clearBackButton();}
+function closeDetail(){sheet('detail',false);clearBackButton();selectPin(null);}
 
 // ── FULLSCREEN PHOTO VIEWER ───────────────────────────────
 function openPhotoView(src,name){
@@ -2562,8 +2989,8 @@ async function publishPin(){
   setTimeout(()=>{
     showPinSuccess(pinDraft.emoji||'✅');
     if(map){
-      map.invalidateSize();
-      map.flyTo([coords.lat,coords.lng],15,{animate:true,duration:0.6});
+      map.resize();
+      map.flyTo({center:[coords.lng,coords.lat],zoom:Math.max(map.getZoom(),15.5),duration:900,essential:true});
     }
   },100);
   if(tg) tg.HapticFeedback?.notificationOccurred('success');
@@ -2674,7 +3101,7 @@ function changeCityTo(city){
   closeCitySheet();
   showToast(t('city_prefix')+(lang==='en'?(CITIES[city]?.en||city):city));
   const cc=CITIES[city];
-  if(map&&cc) map.flyTo([cc.lat,cc.lng],14,{duration:1});
+  if(map&&cc) map.flyTo({center:[cc.lng,cc.lat],zoom:MAP_CITY_ZOOM,duration:1600,essential:true});
 }
 function changeAge(){
   const a=prompt(t('prof_age')+':',user?.age);if(!a)return;
@@ -2711,7 +3138,7 @@ function switchScreen(name){
   if(name==='list') renderList();
   if(name==='requests'){renderRequests();updateReqBadge();}
   if(name==='profile') updateProfileUI();
-  if(map&&name==='map') setTimeout(()=>map&&map.invalidateSize(),50);if((name==='list'||name==='requests')&&API&&TG_INIT){syncFromServer().then(()=>{if(name==='list') renderList();if(name==='requests'){renderRequests();updateReqBadge();}updateMatchBadge();});}
+  if(map&&name==='map') setTimeout(()=>map&&map.resize(),50);if((name==='list'||name==='requests')&&API&&TG_INIT){syncFromServer().then(()=>{if(name==='list') renderList();if(name==='requests'){renderRequests();updateReqBadge();}updateMatchBadge();});}
   // Закрываем loc-picker если пользователь ушёл с карты
   if(name!=='map'){
     const lp=document.getElementById('loc-picker-overlay');
