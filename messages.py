@@ -17,6 +17,17 @@ def ask_name() -> str:
     return "Как тебя зовут? Напиши своё имя:"
 
 
+def ask_gender() -> str:
+    return "Ты парень или девушка? Это нужно для аватарки-персонажа, пока в профиле нет фото 🙂"
+
+
+GENDER_LABELS = {"m": "Парень", "f": "Девушка"}
+
+
+def ask_new_gender() -> str:
+    return "Выбери пол:"
+
+
 def ask_age() -> str:
     return "Сколько тебе лет? (18–80)"
 

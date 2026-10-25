@@ -105,6 +105,10 @@ class RegisterBody(BaseModel):
     init_data: str
     lat: Optional[float] = None
     lng: Optional[float] = None
+    gender: Optional[str] = None  # 'm' / 'f'
+
+class GenderBody(BaseModel):
+    gender: Optional[str] = None
 
 class PinBody(BaseModel):
     category: str
@@ -131,8 +135,22 @@ def auth(body: RegisterBody):
     city = body.city.strip()[:50]
     if not name or not city:
         raise HTTPException(400, "name and city required")
-    db.upsert_user(tg_id, username, name, age, city, body.lat, body.lng)
-    return {"ok": True, "user": {"tg_id": tg_id, "name": name, "age": age, "city": city, "lat": body.lat, "lng": body.lng}}
+    gender = db.normalize_gender(body.gender)
+    db.upsert_user(tg_id, username, name, age, city, body.lat, body.lng, gender)
+    return {"ok": True, "user": {"tg_id": tg_id, "name": name, "age": age, "city": city, "lat": body.lat, "lng": body.lng, "gender": gender}}
+
+@app.post("/api/profile/gender")
+def set_gender(body: GenderBody, x_init_data: str = Header(None)):
+    tg_user = get_tg_user(x_init_data)
+    with db.get_db() as conn:
+        me = conn.execute("SELECT tg_id FROM users WHERE tg_id=?", (tg_user["id"],)).fetchone()
+    if not me:
+        raise HTTPException(404, "Register first")
+    gender = db.normalize_gender(body.gender)
+    if body.gender and not gender:
+        raise HTTPException(400, "gender must be 'm' or 'f'")
+    db.update_user_gender(tg_user["id"], gender)
+    return {"ok": True, "gender": gender}
 
 @app.get("/api/me")
 def get_me(request: Request, x_init_data: str = Header(None)):
@@ -194,6 +212,7 @@ def get_pins(x_init_data: str = Header(None)):
             "name": row.get("name"),
             "age": row.get("age"),
             "photo": row.get("photo"),
+            "gender": row.get("gender"),
             "interest_count": row.get("interest_count", 0),
             "emoji": EMOJIS.get(cat, "✨"),
             "catLabel": LABELS.get(cat, "Другое"),
@@ -329,6 +348,51 @@ def decline_request(interest_id: int, x_init_data: str = Header(None)):
         raise HTTPException(404, "Interest not found or not yours")
 
     return {"ok": True}
+
+# ── Events (мероприятия на карте + «Я пойду») ─────────────────
+@app.on_event("startup")
+def _startup():
+    # Создаёт таблицы (если API стартовал раньше бота) и подтягивает events.json
+    db.init_db()
+
+def _event_public(e: dict) -> dict:
+    e = dict(e)
+    e["going_count"] = int(e.get("app_going") or 0) + int(e.get("offline_going") or 0)
+    return e
+
+@app.get("/api/events")
+def list_events(x_init_data: str = Header(None)):
+    """Публичный список предстоящих событий; с initData — ещё и отметка «я иду»."""
+    tg_user = get_tg_user_optional(x_init_data)
+    events = db.get_upcoming_events(tg_user["id"] if tg_user else None)
+    return {"events": [_event_public(e) for e in events]}
+
+@app.get("/api/events/{event_id}/goers")
+def event_goers(event_id: str):
+    if not db.get_event(event_id):
+        raise HTTPException(404, "Event not found")
+    return {"goers": db.get_event_goers(event_id, 12)}
+
+def _set_going(event_id: str, x_init_data: str, going: bool):
+    tg_user = get_tg_user(x_init_data)
+    with db.get_db() as conn:
+        me = conn.execute("SELECT tg_id FROM users WHERE tg_id=?", (tg_user["id"],)).fetchone()
+    if not me:
+        raise HTTPException(404, "Register first")
+    app_going = db.set_event_going(event_id, me["tg_id"], going)
+    if app_going is None:
+        raise HTTPException(404, "Event not found or finished")
+    ev = db.get_event(event_id)
+    return {"ok": True, "i_going": going, "app_going": app_going,
+            "going_count": app_going + int(ev["offline_going"] or 0)}
+
+@app.post("/api/events/{event_id}/going")
+def event_going(event_id: str, x_init_data: str = Header(None)):
+    return _set_going(event_id, x_init_data, True)
+
+@app.delete("/api/events/{event_id}/going")
+def event_not_going(event_id: str, x_init_data: str = Header(None)):
+    return _set_going(event_id, x_init_data, False)
 
 # ── Health ────────────────────────────────────────────────────
 @app.get("/health")

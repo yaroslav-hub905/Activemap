@@ -50,6 +50,7 @@ if not BOT_TOKEN:
 
 # Регистрация
 (REG_NAME, REG_AGE, REG_CITY) = range(3)
+REG_GENDER = 3
 
 # Создание метки
 (POST_CATEGORY, POST_DESCRIPTION, POST_TIME, POST_TIME_CUSTOM, POST_CITY_CONFIRM) = range(10, 15)
@@ -144,9 +145,24 @@ async def reg_age(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
             ctx.user_data["last_q_msg_id"] = err.message_id
         return REG_AGE
     ctx.user_data["reg_age"] = age
-    city_msg = await send(update, msg.ask_city(), reply_markup=kb.kb_belgium_cities())
-    if city_msg:
-        ctx.user_data["last_q_msg_id"] = city_msg.message_id
+    g_msg = await send(update, msg.ask_gender(), reply_markup=kb.kb_gender("reggender"))
+    if g_msg:
+        ctx.user_data["last_q_msg_id"] = g_msg.message_id
+    return REG_GENDER
+
+async def reg_gender_button(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
+    """Выбор пола кнопкой при регистрации → дальше город."""
+    query = update.callback_query
+    await query.answer()
+    ctx.user_data["reg_gender"] = db.normalize_gender(query.data.split(":", 1)[1])
+    try:
+        await query.message.delete()
+    except TelegramError:
+        pass
+    ctx.user_data.pop("last_q_msg_id", None)
+    city_msg = await ctx.bot.send_message(chat_id=update.effective_chat.id, text=msg.ask_city(),
+                                          reply_markup=kb.kb_belgium_cities())
+    ctx.user_data["last_q_msg_id"] = city_msg.message_id
     return REG_CITY
 
 async def _finish_registration(update: Update, ctx: ContextTypes.DEFAULT_TYPE, city: str) -> None:
@@ -158,6 +174,7 @@ async def _finish_registration(update: Update, ctx: ContextTypes.DEFAULT_TYPE, c
         name = ctx.user_data["reg_name"],
         age = ctx.user_data["reg_age"],
         city = city,
+        gender = ctx.user_data.get("reg_gender"),
     )
     await send(update, msg.profile_saved(
         ctx.user_data["reg_name"], ctx.user_data["reg_age"], city
@@ -411,7 +428,7 @@ async def cmd_open_app(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
 
 # ── Изменение данных профиля ─────────────────────────────────
 
-FIELD_LABELS = {"name": "Имя", "age": "Возраст", "city": "Город"}
+FIELD_LABELS = {"name": "Имя", "age": "Возраст", "city": "Город", "gender": "Пол"}
 
 async def editdata_entry(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
@@ -425,6 +442,8 @@ async def editdata_entry(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
         await query.edit_message_text(msg.ask_new_name())
     elif field == "age":
         await query.edit_message_text(msg.ask_new_age())
+    elif field == "gender":
+        await query.edit_message_text(msg.ask_new_gender(), reply_markup=kb.kb_gender("editgender"))
     else:
         return ConversationHandler.END
     return EDIT_INPUT
@@ -477,6 +496,16 @@ async def editdata_city_button(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -
 
     db.update_user_city(tg_id, code)
     await query.edit_message_text(msg.data_updated("Город", code), parse_mode=ParseMode.MARKDOWN, reply_markup=kb.kb_main_menu(MINIAPP_URL))
+    ctx.user_data.pop("edit_field", None)
+    return ConversationHandler.END
+
+async def editdata_gender_button(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    gender = db.normalize_gender(query.data.split(":", 1)[1])
+    db.update_user_gender(update.effective_user.id, gender)
+    await query.edit_message_text(msg.data_updated("Пол", msg.GENDER_LABELS.get(gender, "—")),
+                                  parse_mode=ParseMode.MARKDOWN, reply_markup=kb.kb_main_menu(MINIAPP_URL))
     ctx.user_data.pop("edit_field", None)
     return ConversationHandler.END
 
@@ -634,6 +663,7 @@ def main() -> None:
         states={
             REG_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, reg_name)],
             REG_AGE:  [MessageHandler(filters.TEXT & ~filters.COMMAND, reg_age)],
+            REG_GENDER: [CallbackQueryHandler(reg_gender_button, pattern=r"^reggender:")],
         REG_CITY: [
             CallbackQueryHandler(reg_city_button, pattern=r"^regcity:"),
             MessageHandler(filters.TEXT & ~filters.COMMAND, reg_city),
@@ -680,6 +710,7 @@ def main() -> None:
         states={
             EDIT_INPUT: [
                 CallbackQueryHandler(editdata_city_button, pattern=r"^editcity:"),
+                CallbackQueryHandler(editdata_gender_button, pattern=r"^editgender:"),
                 MessageHandler(filters.TEXT & ~filters.COMMAND, editdata_save),
             ],
         },

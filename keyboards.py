@@ -141,11 +141,19 @@ def kb_main_menu(miniapp_url: str = "") -> InlineKeyboardMarkup:
     ])
     return InlineKeyboardMarkup(rows)
 
+def kb_gender(prefix: str = "reggender") -> InlineKeyboardMarkup:
+    """Выбор пола (для аватарки-персонажа)."""
+    return InlineKeyboardMarkup([[
+        InlineKeyboardButton("👨 Парень", callback_data=f"{prefix}:m"),
+        InlineKeyboardButton("👩 Девушка", callback_data=f"{prefix}:f"),
+    ]])
+
 def kb_edit_data_menu() -> InlineKeyboardMarkup:
     """Подменю выбора, что именно изменить."""
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("👤 Имя", callback_data="editdata:name")],
         [InlineKeyboardButton("🎂 Возраст", callback_data="editdata:age")],
         [InlineKeyboardButton("📍 Город", callback_data="editdata:city")],
+        [InlineKeyboardButton("⚧ Пол", callback_data="editdata:gender")],
         [InlineKeyboardButton("⬅️ Назад", callback_data="menu:back")],
     ])

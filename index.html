@@ -482,13 +482,15 @@ textarea:focus{border-color:var(--primary)}
 .detail-tag{display:inline-flex;align-items:center;gap:3px;padding:4px 10px;border-radius:16px;font-size:12px;font-weight:600;background:var(--bg);color:var(--text2)}
 .detail-desc{font-size:14px;line-height:1.55;color:var(--text);background:var(--bg);border-radius:12px;padding:12px 14px;margin-bottom:15px}
 /* ── карточка метки (редизайн) ── */
-.dc-cover{position:relative;margin:-16px -18px 14px;height:220px;overflow:hidden;cursor:zoom-in;background:var(--card2)}
-.dc-cover img{width:100%;height:100%;object-fit:cover;object-position:center 30%;display:block}
-.dc-cover::after{content:'';position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.62),rgba(0,0,0,0) 58%);pointer-events:none}
-.dc-cover-top{position:absolute;left:16px;right:16px;top:14px;z-index:1;display:flex;align-items:center;justify-content:space-between}
+.dc-cover{position:relative;margin:-16px -18px 14px;height:clamp(260px,46vh,380px);overflow:hidden;cursor:zoom-in;background:#111;display:flex;align-items:center;justify-content:center}
+/* фото целиком, без обрезки и без увеличения сверх реального размера; края — размытая копия */
+.dc-cover-bg{position:absolute;inset:-30px;width:calc(100% + 60px);height:calc(100% + 60px);object-fit:cover;filter:blur(24px) saturate(1.15) brightness(.72);pointer-events:none}
+.dc-cover-img{position:relative;display:block;width:auto;height:auto;max-width:100%;max-height:100%;object-fit:contain;box-shadow:0 8px 30px rgba(0,0,0,.35)}
+.dc-cover::after{content:'';position:absolute;inset:0;z-index:1;background:linear-gradient(to top,rgba(0,0,0,.66) 0%,rgba(0,0,0,0) 34%),linear-gradient(to bottom,rgba(0,0,0,.28) 0%,rgba(0,0,0,0) 22%);pointer-events:none}
+.dc-cover-top{position:absolute;left:16px;right:16px;top:14px;z-index:2;display:flex;align-items:center;justify-content:space-between}
 .dc-zoom{width:32px;height:32px;border-radius:50%;background:rgba(0,0,0,.42);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center}
 .dc-zoom svg{width:16px;height:16px;fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
-.dc-cover-id{position:absolute;left:18px;right:18px;bottom:14px;z-index:1;color:#fff}
+.dc-cover-id{position:absolute;left:18px;right:18px;bottom:14px;z-index:2;color:#fff;text-shadow:0 1px 6px rgba(0,0,0,.45)}
 .dc-cover-id .dc-sub{color:rgba(255,255,255,.88)}
 .dc-head{display:flex;align-items:center;gap:14px;margin-bottom:14px}
 .dc-av{width:68px;height:68px;border-radius:50%;padding:3px;background:var(--c,var(--primary));flex-shrink:0}
@@ -507,6 +509,48 @@ textarea:focus{border-color:var(--primary)}
 .interest-btn{width:100%;padding:15px;border-radius:var(--radius);background:var(--primary);border:none;color:#fff;font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:all .15s;font-family:inherit}
 .interest-btn:active{transform:scale(.97)}
 .interest-btn.sent{background:var(--secondary)}
+/* ── события: маркер, карточка, шкала «Я пойду» ── */
+.ev-host{cursor:pointer}
+.ev{position:relative;display:flex;flex-direction:column;align-items:center;transform-origin:50% 100%;filter:drop-shadow(0 6px 12px rgba(120,20,80,.35));animation:mkIn .38s var(--ease-spring) backwards;transition:transform .25s var(--ease-spring)}
+.ev-tile{position:relative;box-sizing:border-box;width:56px;height:56px;border-radius:18px;border:3px solid #fff;background:linear-gradient(135deg,#FF8A00 0%,#E52E71 55%,#7B2FF7 100%);display:flex;align-items:center;justify-content:center}
+.ev-emoji{font-size:28px;line-height:1}
+.ev-count{position:absolute;top:-9px;right:-11px;box-sizing:border-box;min-width:22px;height:22px;padding:0 6px;border-radius:var(--r-pill);border:2px solid #fff;background:#1A1A1A;color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums}
+.ev-date{position:absolute;left:50%;bottom:-10px;transform:translateX(-50%);padding:2px 7px;border-radius:var(--r-pill);background:#fff;color:#1A1A1A;font-size:10.5px;font-weight:800;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.2)}
+.ev-tail{width:14px;height:10px;margin-top:9px;background:#fff;clip-path:polygon(0 0,100% 0,50% 100%)}
+.ev.going .ev-tile{border-color:#4ECDA4}
+.ev.going .ev-count{background:#27AE60}
+@media (hover:hover){.ev:hover{transform:scale(1.06)}}
+.evc-hero{display:flex;align-items:center;gap:14px;margin:-16px -18px 14px;padding:22px 18px;color:#fff;background:linear-gradient(135deg,#FF8A00 0%,#E52E71 55%,#7B2FF7 100%)}
+.evc-emoji{flex-shrink:0;width:64px;height:64px;border-radius:20px;background:rgba(255,255,255,.18);box-shadow:inset 0 0 0 2px rgba(255,255,255,.35);display:flex;align-items:center;justify-content:center;font-size:36px}
+.evc-hero-txt{min-width:0}
+.evc-kicker{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;opacity:.9}
+.evc-title{margin-top:2px;font-size:21px;font-weight:800;letter-spacing:-.02em;line-height:1.15;overflow-wrap:anywhere}
+.evc-place{border:none;text-align:left;cursor:pointer;font-family:inherit}
+.evc-place small{display:block;margin-top:2px;font-size:11.5px;font-weight:500;color:var(--text2)}
+.evc-going{margin-bottom:14px;padding:14px 16px;border-radius:var(--r-md);background:var(--bg)}
+.evc-going-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;font-size:14px;font-weight:700}
+.evc-goal{flex-shrink:0;font-size:12px;font-weight:600;color:var(--text2)}
+.evc-bar{height:10px;margin:10px 0;border-radius:var(--r-pill);background:var(--border);overflow:hidden}
+.evc-bar-fill{height:100%;min-width:10px;border-radius:inherit;background:linear-gradient(90deg,#FF8A00,#E52E71);transition:width .5s var(--ease-out)}
+.evc-bar-fill.zero{min-width:0}
+.evc-avs{display:flex;align-items:center}
+.evc-av{box-sizing:border-box;width:30px;height:30px;margin-left:-8px;border-radius:50%;border:2px solid var(--bg);background:var(--card2);overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:var(--primary)}
+.evc-av:first-child{margin-left:0}
+.evc-av img{width:100%;height:100%;object-fit:cover}
+.evc-more{margin-left:6px;font-size:12px;font-weight:600;color:var(--text2)}
+.evc-offline{margin-top:8px;font-size:12px;color:var(--text2)}
+.interest-btn.evc-on{background:var(--secondary-light);color:#1f9e78}
+.evc-ticket{width:100%;margin-top:10px;padding:13px;border-radius:var(--radius);border:1.5px solid var(--border2);background:transparent;color:var(--text);font-family:inherit;font-size:15px;font-weight:700;cursor:pointer}
+.evc-ticket:active{transform:scale(.98)}
+.evc-note{margin-top:10px;text-align:center;font-size:12px;color:var(--text2)}
+.rc-ev-tile{flex-shrink:0;width:52px;height:52px;border-radius:16px;background:linear-gradient(135deg,#FF8A00,#E52E71 55%,#7B2FF7);display:flex;align-items:center;justify-content:center;font-size:26px}
+/* ── метки-примеры ── */
+.gender-pick{display:flex;gap:10px;margin-bottom:16px}
+.gender-opt{flex:1;padding:13px 10px;border:1.5px solid var(--border);border-radius:var(--radius);background:var(--card);color:var(--text);font-family:inherit;font-size:15px;font-weight:600;cursor:pointer;transition:all .15s}
+.gender-opt.on{border-color:var(--primary);background:var(--primary-light);color:var(--primary)}
+.gender-opt:active{transform:scale(.97)}
+.dc-av-in img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block}
+.ex-note{margin-bottom:12px;padding:12px 14px;border-radius:var(--r-md);background:var(--bg);font-size:13px;line-height:1.45;color:var(--text2)}
 .report-link{text-align:center;margin-top:10px;font-size:13px;color:var(--text3);cursor:pointer;padding:8px}
 
 /* photo sheet */
@@ -681,6 +725,12 @@ textarea:focus{border-color:var(--primary)}
     <div class="field-label" id="reg-lbl-age">Возраст</div>
     <input class="field-input" id="reg-age" placeholder="от 18 до 80" type="number" min="18" max="80" inputmode="numeric">
 
+    <div class="field-label" id="reg-lbl-gender">Пол</div>
+    <div class="gender-pick" id="reg-gender">
+      <button type="button" class="gender-opt" data-g="m" onclick="pickRegGender('m')">👨 <span id="reg-g-m">Парень</span></button>
+      <button type="button" class="gender-opt" data-g="f" onclick="pickRegGender('f')">👩 <span id="reg-g-f">Девушка</span></button>
+    </div>
+
     <div class="field-label" id="reg-lbl-city">Город</div>
     <div id="geo-loading-reg" class="geo-loading" style="display:none">
       <div class="spinner"></div> <span id="geo-loading-text">Определяем твой город...</span>
@@ -741,6 +791,7 @@ textarea:focus{border-color:var(--primary)}
     </div>
     <div class="filter-bar">
       <div class="chip active" id="chip-all" onclick="filterMap('all',this)">🗺 Все</div>
+      <div class="chip" id="chip-event" style="--c:#E52E71" onclick="filterMap('event',this)">🎉 <span id="chip-lbl-event">События</span></div>
       <div class="chip" id="chip-coffee" style="--c:#E8845A" onclick="filterMap('coffee',this)">☕ <span id="chip-lbl-coffee">Кофе</span></div>
       <div class="chip" id="chip-walk" style="--c:#4A90E2" onclick="filterMap('walk',this)">🚶 <span id="chip-lbl-walk">Прогулка</span></div>
       <div class="chip" id="chip-bar" style="--c:#9B59B6" onclick="filterMap('bar',this)">🍺 <span id="chip-lbl-bar">Бар</span></div>
@@ -853,6 +904,12 @@ textarea:focus{border-color:var(--primary)}
     <div class="setting-row" style="border-radius:0 0 14px 14px" onclick="changeAge()">
       <div class="setting-icon">🎂</div>
       <div class="setting-label" id="prof-lbl-age">Изменить возраст</div>
+      <div class="setting-arrow">›</div>
+    </div>
+    <div class="setting-row" style="border-radius:0 0 14px 14px;margin-top:0.5px" onclick="openGenderSheet()">
+      <div class="setting-icon">⚧</div>
+      <div class="setting-label" id="prof-lbl-gender">Пол</div>
+      <div class="setting-value" id="prof-gender-val"></div>
       <div class="setting-arrow">›</div>
     </div>
 
@@ -993,6 +1050,23 @@ textarea:focus{border-color:var(--primary)}
   <button class="photo-viewer-close" onclick="closePhotoView()">✕</button>
   <img id="photo-viewer-img" src="" alt="">
   <div class="photo-viewer-name" id="photo-viewer-name"></div>
+</div>
+
+<!-- Gender sheet -->
+<div class="sheet-backdrop" id="gender-backdrop" onclick="closeGenderSheet()"></div>
+<div class="sheet" id="gender-sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-head">
+    <div class="sheet-title" id="gender-sheet-title">Кто ты?</div>
+    <button class="sheet-close" onclick="closeGenderSheet()">✕</button>
+  </div>
+  <div class="sheet-body" style="padding:14px 18px 32px">
+    <div class="ex-note" id="gender-sheet-sub" style="margin-bottom:14px">Нужно для аватарки-персонажа, пока в профиле нет фото</div>
+    <div class="gender-pick" id="gender-sheet-pick">
+      <button type="button" class="gender-opt" data-g="m" onclick="setGender('m')">👨 <span id="gs-g-m">Парень</span></button>
+      <button type="button" class="gender-opt" data-g="f" onclick="setGender('f')">👩 <span id="gs-g-f">Девушка</span></button>
+    </div>
+  </div>
 </div>
 
 <!-- Photo sheet -->
@@ -1261,7 +1335,16 @@ const I18N = {
     no_results:'Ничего не нашлось',no_results_sub:'Попробуй другой запрос или категорию',reset_filters:'Сбросить',
     pins_loading:'Загружаем метки…',pins_err:'Не удалось загрузить метки',retry:'Повторить',
     map_empty:'Здесь пока тихо',map_empty_sub:'Поставь первую метку — и тебя увидят рядом',map_empty_cta:'Поставить',
-    photo_open:'Открыть фото',map_unsupported:'Карта не поддерживается этим устройством',
+    photo_open:'Открыть фото',
+    chip_event:'События',ev_label:'Событие',ev_going_btn:'🙋 Я пойду',ev_you_going:'✓ Ты идёшь',ev_cancel:'передумал',
+    ev_tickets:'🎟 Купить билет',ev_route:'маршрут',ev_going_n:n=>`Идут: ${n}`,ev_goal:g=>`цель — ${g}`,
+    ev_offline:n=>`из них ${n} записались у организатора`,ev_first:'Стань первым — отметь «Я пойду»',
+    ev_note:'Твоё имя и фото увидят те, кто тоже идёт',ev_need_tg:'Открой YAMA в Telegram, чтобы отметиться',
+    ev_going_toast:'🎉 Отлично! Ты в списке идущих',
+    ex_badge:'Пример',ex_note:'Это демонстрационная метка — она показывает, как работает YAMA. Заявка никуда не отправлена. Поставь свою метку, и тебя увидят реальные люди рядом.',
+    reg_lbl_gender:'Пол',g_m:'Парень',g_f:'Девушка',g_none:'не указан',enter_gender:'Выбери пол',prof_lbl_gender:'Пол',
+    gender_title:'Кто ты?',gender_sub:'Нужно для аватарки-персонажа, пока в профиле нет фото',gender_ok:'Сохранено ✓',
+    ex_cta:'✨ Поставить свою метку',map_unsupported:'Карта не поддерживается этим устройством',
     s_div_account:'Аккаунт',
     prof_sec_profile:'Профиль',prof_sec_about:'О приложении',
     prof_lbl_name:'Изменить имя',prof_lbl_city:'Сменить город',prof_lbl_age:'Изменить возраст',
@@ -1366,7 +1449,16 @@ const I18N = {
     no_results:'Nothing found',no_results_sub:'Try another query or category',reset_filters:'Reset',
     pins_loading:'Loading pins…',pins_err:"Couldn't load pins",retry:'Retry',
     map_empty:"It's quiet here",map_empty_sub:'Drop the first pin so people nearby can find you',map_empty_cta:'Drop a pin',
-    photo_open:'Open photo',map_unsupported:'Map is not supported on this device',
+    photo_open:'Open photo',
+    chip_event:'Events',ev_label:'Event',ev_going_btn:"🙋 I'm going",ev_you_going:"✓ You're going",ev_cancel:'cancel',
+    ev_tickets:'🎟 Buy a ticket',ev_route:'directions',ev_going_n:n=>`Going: ${n}`,ev_goal:g=>`goal — ${g}`,
+    ev_offline:n=>`incl. ${n} registered with the organizer`,ev_first:'Be the first — tap “I\'m going”',
+    ev_note:'People who are also going will see your name and photo',ev_need_tg:'Open YAMA in Telegram to join',
+    ev_going_toast:"🎉 Great! You're on the list",
+    ex_badge:'Example',ex_note:"This is a demo pin that shows how YAMA works. No request was sent. Drop your own pin so real people nearby can find you.",
+    reg_lbl_gender:'Gender',g_m:'Guy',g_f:'Girl',g_none:'not set',enter_gender:'Choose your gender',prof_lbl_gender:'Gender',
+    gender_title:'Who are you?',gender_sub:'Used for your character avatar until you add a photo',gender_ok:'Saved ✓',
+    ex_cta:'✨ Drop my own pin',map_unsupported:'Map is not supported on this device',
     s_div_account:'Account',
     prof_sec_profile:'Profile',prof_sec_about:'About',
     prof_lbl_name:'Change name',prof_lbl_city:'Change city',prof_lbl_age:'Change age',
@@ -1452,14 +1544,16 @@ function applyLang(){
   // Chip filter labels
   si('chip-all',lang==='ru'?'chip_all':'chip_all');
   const chipAllEl=qi('chip-all');if(chipAllEl)chipAllEl.textContent='🗺 '+t('chip_all');
-  ['coffee','walk','bar','sport','language','culture','food','work','other'].forEach(c=>si('chip-lbl-'+c,'chip_'+c));
+  ['event','coffee','walk','bar','sport','language','culture','food','work','other'].forEach(c=>si('chip-lbl-'+c,'chip_'+c));
   // Map search + overlays
   const msIn=qi('map-search-input');if(msIn){msIn.placeholder=t('search_ph');msIn.setAttribute('aria-label',t('search_ph'));}
   const msCl=qi('ms-clear');if(msCl)msCl.setAttribute('aria-label',t('search_clear'));
   if(map){updateMapTiles();renderMapPins();} // подписи карты тоже на выбранном языке
   updateMapStatus();
   // Profile labels
-  si('prof-sec-profile','prof_sec_profile');si('prof-sec-about','prof_sec_about');
+  si('prof-sec-profile','prof_sec_profile');
+  si('reg-lbl-gender','reg_lbl_gender');si('reg-g-m','g_m');si('reg-g-f','g_f');si('prof-lbl-gender','prof_lbl_gender');
+  si('gender-sheet-title','gender_title');si('gender-sheet-sub','gender_sub');si('gs-g-m','g_m');si('gs-g-f','g_f');si('prof-sec-about','prof_sec_about');
   si('prof-lbl-name','prof_lbl_name');si('prof-lbl-city','prof_lbl_city');si('prof-lbl-age','prof_lbl_age');
   si('prof-lbl-about','prof_lbl_about');si('prof-lbl-privacy','prof_lbl_privacy');
   // Detail sheet title
@@ -1793,7 +1887,8 @@ async function restoreOrRegister(){
           age:  u.age,
           city: u.city,
           username: u.username?('@'+u.username):null,
-          photo: u.photo||null
+          photo: u.photo||null,
+          gender: u.gender||null
         };
         save('user',user);
         showApp();tryGetGpsSilent();
@@ -1831,7 +1926,8 @@ async function syncFromServer(){
         age:  u.age,
         city: u.city,
         username: u.username?('@'+u.username):null,
-        photo: u.photo||null
+        photo: u.photo||null,
+        gender: u.gender||null
       };
       save('user',user);
 
@@ -1867,7 +1963,8 @@ async function syncFromServer(){
         activityLabel: r.catLabel||t('cat_'+r.category),
         activityDesc: r.description||'',
         time: r.time_text,
-        photo: r.from_photo||null
+        photo: r.from_photo||null,
+        gender: r.from_gender||null
       }));
       sentReqs=(reqs.sent||[]).map(r=>({
         id: r.id,
@@ -1881,7 +1978,8 @@ async function syncFromServer(){
         activityLabel: r.catLabel||t('cat_'+r.category),
         activityDesc: r.description||'',
         time: r.time_text,
-        photo: r.to_photo||null
+        photo: r.to_photo||null,
+        gender: r.to_gender||null
       }));
       save('receivedReqs',receivedReqs);
       save('sentReqs',sentReqs);
@@ -1896,6 +1994,7 @@ async function syncFromServer(){
           city: r.from_city,
           username: r.from_username?('@'+r.from_username):null,
           photo: r.from_photo||null,
+          gender: r.from_gender||null,
           activityEmoji: r.emoji||'✨',
           activityCat: r.category,
           activityLabel: r.catLabel||t('cat_'+r.category),
@@ -1915,6 +2014,7 @@ async function syncFromServer(){
 }
 
 function showApp(){
+  setTimeout(maybeAskGender,3000);
   document.getElementById('geo-screen').classList.add('hidden');
   document.getElementById('reg-screen').classList.add('hidden');
   document.getElementById('nav').style.display='flex';
@@ -2022,18 +2122,20 @@ async function submitReg(){
   if(!name){showToast(t('enter_name'));return}
   if(isNaN(age)||age<18||age>80){showToast(t('enter_age'));return}
   if(!city){showToast(t('enter_city'));return}
+  const gender=selectedGenderReg;
+  if(!gender){showToast(t('enter_gender'));return}
 
   const btn=document.getElementById('reg-btn');
   btn.disabled=true;btn.textContent='⏳';
 
   // Отправляем на бэк если API настроен
   if(API&&TG_INIT){
-    const res=await apiCall('POST','/api/auth',{name,age,city,init_data:TG_INIT});
+    const res=await apiCall('POST','/api/auth',{name,age,city,gender,init_data:TG_INIT});
     if(!res){showToast(t('api_err'));btn.disabled=false;btn.textContent=t('submit');return}
   }
 
   const tgU=tg?.initDataUnsafe?.user;
-  user={name,age,city,username:tgU?.username?('@'+tgU.username):null};
+  user={name,age,city,gender,username:tgU?.username?('@'+tgU.username):null};
   save('user',user);
   showApp();
   showToast(t('reg_ok',name));
@@ -2206,6 +2308,7 @@ function updateMapControls(){
 
 async function loadPins(){
   pinsLoadState='loading';updateMapStatus();
+  loadEvents();
   // Если API настроен — грузим реальные данные
   if(API){
     // Грузим ВСЕ пины — auth опциональна, сервер сам разберётся
@@ -2223,6 +2326,7 @@ async function loadPins(){
         desc: p.desc??p.description??'',
         time: p.time??p.time_text??'',
       }));
+      allPins=withExamples(allPins);
       pinsLoadState='ok';updateMapStatus();
       const mine=allPins.find(p=>p.isMine||p.id==='mine');
       if(mine){myPin={...mine,id:'mine'};save('myPin',myPin);}
@@ -2232,7 +2336,7 @@ async function loadPins(){
   }
   // Нет API или сервер не ответил — только своя метка из localStorage
   pinsLoadState=API?'error':'ok';
-  allPins=myPin?[{...myPin,id:'mine'}]:[];
+  allPins=withExamples(myPin?[{...myPin,id:'mine'}]:[]);
   updateMapStatus();
   renderMapPins();renderList();
 }
@@ -2249,6 +2353,7 @@ function renderMapPins(){
     addMapPin(pin);
   });
   layoutMarkers();
+  renderEventMarkers();
   updateMapOverlay();
 }
 function addMapPin(pin){
@@ -2342,10 +2447,18 @@ function filterMap(cat,el){
 // ── MAP UI: поиск, выделение, лента результатов, состояния ──
 function pinCatLabel(p){const k='cat_'+p.cat,v=t(k);return v!==k?v:(p.catLabel||p.cat||'');}
 function pinTime(p){return p.timeKey?t(p.timeKey):(p.time||p.time_text||'');}
-function pinPhoto(p){return p.id==='mine'?load('photo'):(p.photo||null);}
+function pinRealPhoto(p){return p.id==='mine'?load('photo'):(p.photo||null);}
+// Аватар для маркеров/списков: реальное фото, иначе персонаж по полу (нейтральный, если пол не указан)
+function pinPhoto(p){
+  const real=pinRealPhoto(p);
+  if(real) return real;
+  return p.id==='mine'?charAvatar(user?.name||p.name,user?.gender||p.gender):charAvatar(p.name,p.gender);
+}
+function charAvatar(seed,gender){return illoAvatar(String(seed||'?'),gender);}
 function normQ(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,' ').trim();}
 // Клиентский поиск по уже загруженным меткам + фильтр категории (API не меняется)
 function pinMatches(p){
+  if(mapFilter==='event') return false;
   if(mapFilter!=='all'&&p.cat!==mapFilter) return false;
   if(!mapQuery) return true;
   const hay=normQ([p.name,p.desc,p.city,CITIES[p.city]?.en,pinCatLabel(p),p.catLabel].join(' '));
@@ -2397,17 +2510,7 @@ function focusPin(p,opts={}){
   // с орбиты/издалека — сразу к улицам; иначе сохраняем масштаб пользователя
   const z=(opts.keepZoom&&cur>=12)?cur:Math.max(cur,CLUSTER_OFF_ZOOM+.5);
   if(open) openDetailObj(p); else selectPin(p.id);
-  let off=[0,0];
-  if(open){
-    if(window.matchMedia('(min-width:768px)').matches){off=[218,0];} // шторка слева, 420px
-    else{
-      const H=map.getContainer().clientHeight||window.innerHeight;
-      const sheetH=document.getElementById('detail-sheet')?.offsetHeight||H*.5;
-      const topUI=document.querySelector('.map-top')?.offsetHeight||110;
-      const tipY=Math.max(topUI+70,(topUI+H-sheetH)/2+28); // +28: аватар над кончиком хвоста
-      off=[0,Math.round(tipY-H/2)];
-    }
-  }
+  const off=open?detailOffset(28):[0,0]; // +28: аватар над кончиком хвоста
   map.flyTo({center:[p.lng,p.lat],zoom:z,offset:off,duration:(opts.keepZoom&&cur>=12)?450:1100,essential:true});
 }
 function selectPin(id){
@@ -2505,20 +2608,200 @@ function updateMapOverlay(){
   const cnt=document.getElementById('ms-count');
   if(!screen||!strip) return;
   const filtering=!!mapQuery||mapFilter!=='all';
-  const vis=visiblePins();
-  if(cnt){cnt.textContent=vis.length;cnt.classList.toggle('show',filtering);}
+  const vis=visiblePins(),visEv=visibleEvents();
+  if(cnt){cnt.textContent=vis.length+visEv.length;cnt.classList.toggle('show',filtering);}
   const worldEmpty=pinsLoadState==='ok'&&allPins.length===0;
   const show=filtering||worldEmpty;
   screen.classList.toggle('has-results',show);
   strip.innerHTML='';
   if(!show) return;
   if(!filtering){strip.appendChild(mapEmptyCard('🌙',t('map_empty'),t('map_empty_sub'),t('map_empty_cta'),()=>openCreate()));return;}
-  if(!vis.length){strip.appendChild(mapEmptyCard('🔍',t('no_results'),t('no_results_sub'),t('reset_filters'),resetMapFilters));return;}
+  if(!vis.length&&!visEv.length){strip.appendChild(mapEmptyCard('🔍',t('no_results'),t('no_results_sub'),t('reset_filters'),resetMapFilters));return;}
   const c=map?map.getCenter():null;
   const list=[...vis];
   if(c) list.sort((a,b)=>distM(c,a)-distM(c,b));
+  visEv.forEach(ev=>strip.appendChild(eventResultCard(ev)));
   list.slice(0,30).forEach(p=>strip.appendChild(resultCard(p)));
   strip.scrollLeft=0;
+}
+
+// ── СОБЫТИЯ: метки мероприятий + «Я пойду» + шкала участников ─────────
+// Список событий приходит с сервера (/api/events), сервер берёт его из events.json.
+let allEvents=[], eventMarkers={}, _openEventId=null;
+const EV_TZ='Europe/Brussels';
+async function loadEvents(){
+  if(!API) return;
+  const data=await apiCall('GET','/api/events');
+  if(!data?.events) return;
+  allEvents=data.events.map(e=>({...e,lat:+e.lat,lng:+e.lng,going_count:+e.going_count||0}));
+  renderEventMarkers();
+  updateMapOverlay();
+}
+function eventMatches(ev){
+  if(mapFilter!=='all'&&mapFilter!=='event') return false;
+  if(!mapQuery) return true;
+  const hay=normQ([ev.title,ev.venue,ev.address,ev.city,CITIES[ev.city]?.en,ev.organizer,ev.description,t('chip_event')].join(' '));
+  return mapQuery.split(' ').every(w=>hay.includes(w));
+}
+function visibleEvents(){return allEvents.filter(e=>isFinite(e.lat)&&isFinite(e.lng)&&eventMatches(e));}
+function evLocale(){return lang==='en'?'en-GB':'ru-RU';}
+function evShortDate(ev){
+  return new Date(ev.starts_at).toLocaleDateString(evLocale(),{day:'numeric',month:'short',timeZone:EV_TZ}).replace('.','');
+}
+function evDateRange(ev){
+  const s=new Date(ev.starts_at),e=new Date(ev.ends_at),L=evLocale();
+  const day=s.toLocaleDateString(L,{weekday:'short',day:'numeric',month:'long',timeZone:EV_TZ});
+  const tm=d=>d.toLocaleTimeString(L,{hour:'2-digit',minute:'2-digit',timeZone:EV_TZ});
+  return `${day} · ${tm(s)}–${tm(e)}`;
+}
+function eventMarkerHtml(ev){
+  return `<div class="ev${ev.i_going?' going':''}"><div class="ev-tile"><span class="ev-emoji">${esc(ev.emoji||'🎉')}</span>`
+    +(ev.going_count?`<span class="ev-count">${ev.going_count>99?'99+':ev.going_count}</span>`:'')
+    +`<span class="ev-date">${esc(evShortDate(ev))}</span></div><div class="ev-tail"></div></div>`;
+}
+function renderEventMarkers(){
+  Object.values(eventMarkers).forEach(m=>{try{m.remove()}catch(e){}});
+  eventMarkers={};
+  if(!map) return;
+  visibleEvents().forEach(ev=>{
+    const el=document.createElement('div');
+    el.className='ev-host';el.setAttribute('role','button');el.setAttribute('aria-label',ev.title||'');
+    el.innerHTML=eventMarkerHtml(ev);
+    el.style.zIndex=900; // события всегда поверх меток людей и не прячутся в кластеры
+    el.addEventListener('click',e=>{e.stopPropagation();focusEvent(ev);});
+    eventMarkers[ev.id]=new maplibregl.Marker({element:el,anchor:'bottom'}).setLngLat([ev.lng,ev.lat]).addTo(map);
+  });
+}
+// Смещение центра карты, чтобы объект оказался посередине видимой части (над шторкой / правее панели)
+function detailOffset(liftPx=28){
+  if(window.matchMedia('(min-width:768px)').matches) return [218,0];
+  const H=map.getContainer().clientHeight||window.innerHeight;
+  const sheetH=document.getElementById('detail-sheet')?.offsetHeight||H*.5;
+  const topUI=document.querySelector('.map-top')?.offsetHeight||110;
+  const tipY=Math.max(topUI+70,(topUI+H-sheetH)/2+liftPx);
+  return [0,Math.round(tipY-H/2)];
+}
+function focusEvent(ev){
+  if(!map) return;
+  openEventCard(ev);
+  const cur=map.getZoom();
+  map.flyTo({center:[ev.lng,ev.lat],zoom:Math.max(cur,14.5),offset:detailOffset(34),duration:cur>=12?600:1200,essential:true});
+}
+function openExternal(url){
+  if(!url) return;
+  if(tg?.openLink) tg.openLink(url); else window.open(url,'_blank','noopener');
+}
+function openEventCard(ev){
+  selectPin(null);
+  _openEventId=ev.id;
+  const title=document.getElementById('detail-sheet-title');if(title)title.textContent=t('ev_label');
+  const body=document.getElementById('detail-body');
+  body.style.removeProperty('--c');
+  const goal=Math.max(+ev.goal||0,ev.going_count,1);
+  const pct=Math.min(100,Math.round(ev.going_count/goal*100));
+  body.innerHTML=`
+    <div class="evc-hero"><div class="evc-emoji">${esc(ev.emoji||'🎉')}</div>
+      <div class="evc-hero-txt"><div class="evc-kicker">${esc(ev.organizer||t('ev_label'))}</div><div class="evc-title">${esc(ev.title||'')}</div></div></div>
+    <div class="dc-facts">
+      <div class="dc-fact"><span class="dc-fact-ic">📅</span><span>${esc(evDateRange(ev))}</span></div>
+      <button type="button" class="dc-fact evc-place" id="evc-route"><span class="dc-fact-ic">📍</span><span>${esc(ev.venue||ev.city||'')}${ev.address?`<small>${esc(ev.address)} · ${esc(t('ev_route'))} ›</small>`:''}</span></button>
+      ${ev.price_text?`<div class="dc-fact"><span class="dc-fact-ic">🎟</span><span>${esc(ev.price_text)}</span></div>`:''}
+    </div>
+    ${ev.description?`<div class="dc-desc">${esc(ev.description)}</div>`:''}
+    <div class="evc-going">
+      <div class="evc-going-top"><span>${ev.going_count?esc(t('ev_going_n',ev.going_count)):esc(t('ev_first'))}</span>${ev.goal?`<span class="evc-goal">${esc(t('ev_goal',ev.goal))}</span>`:''}</div>
+      <div class="evc-bar"><div class="evc-bar-fill${pct?'':' zero'}" style="width:${pct}%"></div></div>
+      <div class="evc-avs" id="evc-avs"></div>
+      ${+ev.offline_going?`<div class="evc-offline">${esc(t('ev_offline',+ev.offline_going))}</div>`:''}
+    </div>
+    <button type="button" class="interest-btn${ev.i_going?' evc-on':''}" id="evc-go">${ev.i_going?esc(t('ev_you_going'))+' · '+esc(t('ev_cancel')):esc(t('ev_going_btn'))}</button>
+    ${ev.ticket_url?`<button type="button" class="evc-ticket" id="evc-ticket">${esc(t('ev_tickets'))}</button>`:''}
+    <div class="evc-note">${esc(t('ev_note'))}</div>`;
+  document.getElementById('evc-go')?.addEventListener('click',()=>toggleEventGoing(ev));
+  document.getElementById('evc-ticket')?.addEventListener('click',()=>openExternal(ev.ticket_url));
+  document.getElementById('evc-route')?.addEventListener('click',()=>openExternal(`https://www.google.com/maps/search/?api=1&query=${ev.lat},${ev.lng}`));
+  loadEventGoers(ev);
+  sheet('detail',true);
+  setBackButton(closeDetail);
+}
+async function loadEventGoers(ev){
+  if(!API) return;
+  const data=await apiCall('GET',`/api/events/${encodeURIComponent(ev.id)}/goers`);
+  const box=document.getElementById('evc-avs');
+  if(!box||_openEventId!==ev.id||!data?.goers?.length) return;
+  const shown=data.goers.slice(0,8);
+  box.innerHTML=shown.map(g=>`<div class="evc-av"><img src="${esc(g.photo||charAvatar(g.name,g.gender))}" alt=""></div>`).join('')
+    +((+ev.app_going||0)>shown.length?`<span class="evc-more">+${(+ev.app_going)-shown.length}</span>`:'');
+}
+async function toggleEventGoing(ev){
+  if(!API||!TG_INIT){showToast(t('ev_need_tg'));return;}
+  const btn=document.getElementById('evc-go');
+  if(!btn||btn.dataset.busy) return;
+  btn.dataset.busy='1';btn.disabled=true;
+  const res=await apiCall(ev.i_going?'DELETE':'POST',`/api/events/${encodeURIComponent(ev.id)}/going`);
+  if(!res){btn.disabled=false;delete btn.dataset.busy;showToast(t('api_err'));return;}
+  ev.i_going=!!res.i_going;ev.going_count=+res.going_count||0;ev.app_going=+res.app_going||0;
+  const i=allEvents.findIndex(e=>e.id===ev.id);if(i>=0)allEvents[i]=ev;
+  renderEventMarkers();
+  if(_openEventId===ev.id) openEventCard(ev);
+  updateMapOverlay();
+  if(tg) tg.HapticFeedback?.notificationOccurred(ev.i_going?'success':'warning');
+  if(ev.i_going) showToast(t('ev_going_toast'));
+}
+function eventResultCard(ev){
+  const b=document.createElement('button');
+  b.type='button';b.className='rc rc-ev';
+  b.innerHTML=`<div class="rc-ev-tile">${esc(ev.emoji||'🎉')}</div>`
+    +`<div class="rc-body"><div class="rc-top"><span class="rc-name">${esc(ev.title||'')}</span></div>`
+    +`<div class="rc-cat" style="--c:#E52E71">${esc(evShortDate(ev))} · ${esc(ev.venue||ev.city||'')}</div>`
+    +`<div class="rc-sub">${ev.going_count?esc(t('ev_going_n',ev.going_count)):esc(t('ev_first'))}</div></div>`;
+  b.addEventListener('click',()=>focusEvent(ev));
+  return b;
+}
+
+// ── МЕТКИ-ПРИМЕРЫ: показываются с бейджем «Пример», пока реальных меток мало ──
+const EXAMPLES_UNTIL=15; // как только реальных меток станет столько — примеры исчезнут
+// Рисованная аватарка (SVG), без фотографий реальных людей
+function illoAvatar(seed,gender){
+  const female=gender===true||gender==='f',neutral=!female&&gender!=='m'&&gender!==false;
+  const bgs=['#FFD9C9','#D7E8FF','#E3F5D8','#F3DFFF','#FFF1C7','#D5F4EE','#FFE0EC'];
+  const skins=['#F6D2B8','#EDC2A2','#D9A27E','#F9DCC6','#C68863'];
+  const hairs=female?['#3B2A20','#7A4A2A','#C68B4A','#1F1A17','#A0522D','#E2B66B']:neutral?['#5A4636','#2E2A33','#8A6A4A','#3D3D45']:['#2B2018','#4A3426','#1C1C1C','#6B4A2E'];
+  const tops=['#E8845A','#4A90E2','#9B59B6','#27AE60','#2BBFA8','#E91E8C','#FF6B35','#607D8B'];
+  let h=7;for(const ch of seed)h=(h*31+ch.charCodeAt(0))>>>0;
+  const pick=(a,k)=>a[(h>>>k)%a.length];
+  const bg=pick(bgs,0),sk=pick(skins,3),hr=pick(hairs,6),tp=pick(tops,9);
+  const back=female?`<path d="M52 96c0-36 21-58 48-58s48 22 48 58v62H52z" fill="${hr}"/>`:'';
+  const front=female
+    ?`<path d="M58 90c4-28 22-42 42-42s38 14 42 42c-14-13-30-19-44-19-14 0-28 6-40 19z" fill="${hr}"/>`
+    :neutral
+    ?`<path d="M60 104c-4-36 14-56 40-56s44 20 40 56c-3-14-8-24-14-30-8 6-18 9-26 9s-18-3-26-9c-6 6-11 16-14 30z" fill="${hr}"/>`
+    :`<path d="M62 86c0-24 17-38 38-38s38 14 38 38c-8-9-22-14-38-14s-30 5-38 14z" fill="${hr}"/>`;
+  const blush=female?'<circle cx="76" cy="111" r="6" fill="#F29C9C" opacity=".45"/><circle cx="124" cy="111" r="6" fill="#F29C9C" opacity=".45"/>':'';
+  const svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="${bg}"/>${back}`
+    +`<path d="M40 200c4-34 30-52 60-52s56 18 60 52z" fill="${tp}"/><rect x="88" y="122" width="24" height="30" rx="10" fill="${sk}"/>`
+    +`<ellipse cx="100" cy="98" rx="36" ry="40" fill="${sk}"/>${front}<circle cx="86" cy="100" r="4" fill="#2A211C"/><circle cx="114" cy="100" r="4" fill="#2A211C"/>`
+    +`<path d="M89 116c6 6 16 6 22 0" stroke="#B4554A" stroke-width="3.5" fill="none" stroke-linecap="round"/>${blush}</svg>`;
+  return 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
+}
+const CAT_EMOJI={coffee:'☕',walk:'🚶',bar:'🍺',sport:'⚽',language:'💬',culture:'🎭',food:'🍜',work:'💻',other:'✨'};
+const EXAMPLE_PINS=[
+  ['Алина',23,true,'coffee','Ищу компанию на кофе и прогулку по Саблону','сегодня в 17:00','Брюссель',50.8405,4.3555],
+  ['Катя',26,true,'walk','Прогулка по Буа-де-ла-Камбр, возьму собаку 🐶','в выходные','Брюссель',50.8125,4.3770],
+  ['Милана',24,true,'language','Французский ↔ русский, выпьем чаю на Флажей','~19:00','Брюссель',50.8275,4.3720],
+  ['Вика',25,true,'sport','Бег по утрам в Синкантенер, темп спокойный','завтра в 8:00','Брюссель',50.8400,4.3930],
+  ['София',22,true,'culture','Хочу на выставку в MAS — кто со мной?','в субботу','Антверпен',51.2289,4.4049],
+  ['Даша',27,true,'food','Ищу компанию на рамен в центре','сегодня вечером','Гент',51.0550,3.7220],
+  ['Лиза',21,true,'bar','Пятничный бар, познакомимся 🍻','в пятницу','Брюгге',51.2085,3.2260],
+  ['Артём',28,false,'sport','Футбол 5×5, нужны ещё двое','в воскресенье','Брюссель',50.8540,4.3330],
+  ['Никита',30,false,'work','Коворк в кафе у Центрального вокзала','через час','Антверпен',51.2170,4.4210],
+  ['Денис',26,false,'walk','Вечерняя прогулка вдоль Лейе','~20:00','Гент',51.0490,3.7270],
+].map(([name,age,female,cat,desc,time,city,lat,lng],i)=>({
+  id:'ex-'+(i+1),is_example:true,name,age,cat,emoji:CAT_EMOJI[cat],desc,time,city,lat,lng,photo:null,gender:female?'f':'m'
+}));
+function withExamples(realPins){
+  const real=realPins.filter(p=>!p.is_example);
+  return real.length<EXAMPLES_UNTIL?[...real,...EXAMPLE_PINS]:real;
 }
 
 // ── MATCHES ───────────────────────────────────────────────
@@ -2568,7 +2851,7 @@ function renderMatches(){
     const card=document.createElement('div');
     card.className='match-card';
     const initial=esc((m.name||'?').charAt(0));
-    const ph=m.photo?`<img src="${esc(m.photo)}" alt="">`:`${initial}`;
+    const ph=`<img src="${esc(m.photo||charAvatar(m.name,m.gender))}" alt="">`;
     // тап по аватарке с фото — полноэкранный просмотр (после innerHTML ниже)
     const cityDisplay=esc(lang==='en'?(CITIES[m.city]?.en||m.city):m.city);
     const actLabel=esc(m.activityLabel||t('cat_'+m.activityCat)||'');
@@ -2625,7 +2908,7 @@ function renderRequests(){
     visible.forEach(r=>{
       const card=document.createElement('div');card.className='req-card';
       const fromInitial=esc((r.fromName||'?').charAt(0));
-      const ph=r.photo?`<img src="${esc(r.photo)}" alt="">`:`${fromInitial}`;
+      const ph=`<img src="${esc(r.photo||charAvatar(r.fromName,r.gender))}" alt="">`;
       const fromCityDisplay=esc(lang==='en'?(CITIES[r.fromCity]?.en||r.fromCity):r.fromCity);
       const actLabel=esc(r.activityCat?t('cat_'+r.activityCat):(r.activityLabel||''));
       card.innerHTML=`
@@ -2656,7 +2939,7 @@ function renderRequests(){
     sentReqs.forEach(r=>{
       const card=document.createElement('div');card.className='req-card';
       const toInitial=esc((r.toName||'?').charAt(0));
-      const ph=r.photo?`<img src="${esc(r.photo)}" alt="">`:`${toInitial}`;
+      const ph=`<img src="${esc(r.photo||charAvatar(r.toName,r.gender))}" alt="">`;
       const toCityDisplay=esc(lang==='en'?(CITIES[r.toCity]?.en||r.toCity):r.toCity);
       const actLabel=esc(r.activityCat?t('cat_'+r.activityCat):(r.activityLabel||''));
       const actTime=esc(r.timeKey?t(r.timeKey):(r.time||''));
@@ -2732,23 +3015,27 @@ function openDetailObj(pin){
   const isMine=pin.id==='mine';
   selectPin(pin.id);
   const col=isMine?'#E8845A':(CAT_COLORS[pin.cat]||'#95A5A6');
-  const myPhoto=pinPhoto(pin);
+  const myPhoto=pinRealPhoto(pin); // обложка — только для настоящего фото
+  const avatarImg=`<img src="${esc(pinPhoto(pin))}" alt="">`;
   const initial=esc((pin.name||'?').charAt(0).toUpperCase());
   const detailLabel=esc(pinCatLabel(pin));
   const detailTime=esc(pinTime(pin));
   const cityDisplay=esc(lang==='en'?(CITIES[pin.city]?.en||pin.city):pin.city);
   const pinIdStr=String(pin.id); // всегда строка для data-атрибута
   const nameH=esc(pin.name||'');
+  _openEventId=null;
+  {const st=document.getElementById('detail-sheet-title');if(st)st.textContent=t('detail_title');}
   const subH=`${pin.age?esc(t('age_years',pin.age))+' · ':''}📍 ${cityDisplay}`;
   const catPill=`<span class="dc-cat">${esc(pin.emoji||'✨')} ${detailLabel}</span>`;
   // Реальное фото — крупной обложкой (тап → полный размер); без фото — аватар с инициалом
   const head=myPhoto
     ?`<div class="dc-cover" id="detail-avatar-el" role="button" tabindex="0" aria-label="${esc(t('photo_open'))}">
-        <img src="${esc(myPhoto)}" alt="">
+        <img class="dc-cover-bg" src="${esc(myPhoto)}" alt="" aria-hidden="true">
+        <img class="dc-cover-img" src="${esc(myPhoto)}" alt="${nameH}">
         <div class="dc-cover-top">${catPill}<span class="dc-zoom"><svg viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></span></div>
         <div class="dc-cover-id"><div class="dc-name">${nameH}</div><div class="dc-sub">${subH}</div></div>
       </div>`
-    :`<div class="dc-head"><div class="dc-av"><div class="dc-av-in">${initial}</div></div>
+    :`<div class="dc-head"><div class="dc-av"><div class="dc-av-in">${avatarImg}</div></div>
         <div class="dc-id">${catPill}<div class="dc-name">${nameH}</div><div class="dc-sub">${subH}</div></div>
       </div>`;
   const body=document.getElementById('detail-body');
@@ -2762,18 +3049,29 @@ function openDetailObj(pin){
     ${pin.desc
       ?`<div class="dc-desc">${esc(pin.desc)}</div>`
       :`<div class="dc-desc empty">${esc(t('no_desc'))}</div>`}
-    ${isMine
+    ${pin.is_example
+      ?`<div id="ex-actions"><button class="interest-btn" id="ex-interest">${t('interest_btn')}</button></div>`
+      :isMine
       ?`<button class="interest-btn" style="background:var(--primary-light);color:var(--primary)" id="del-pin-btn">${t('del_my_pin')}</button>`
       :`<button class="interest-btn" id="interest-btn-detail" data-pin-id="${esc(pinIdStr)}">${t('interest_btn')}</button>
         <div class="report-link" id="report-btn-detail" data-pin-id="${esc(pinIdStr)}">${t('report')}</div>`
     }`;
+  // Демо-метка: при отклике честно объясняем, что это пример — заявка никуда не уходит
+  document.getElementById('ex-interest')?.addEventListener('click',()=>{
+    const box=document.getElementById('ex-actions');if(!box)return;
+    box.innerHTML=`<div class="ex-note">${esc(t('ex_note'))}</div><button class="interest-btn" id="ex-cta">${esc(t('ex_cta'))}</button>`;
+    document.getElementById('ex-cta')?.addEventListener('click',()=>{closeDetail();openCreate();});
+    if(tg) tg.HapticFeedback?.impactOccurred('light');
+  });
   // Тап по аватарке с фото — открыть фото в полный размер
   if(myPhoto){
     document.getElementById('detail-avatar-el')?.addEventListener('click',
       ()=>openPhotoView(myPhoto,pin.name||''));
   }
   // Безопасные обработчики — не через inline onclick со строками
-  if(isMine){
+  if(pin.is_example){
+    /* обработчик выше: заявка не отправляется */
+  } else if(isMine){
     document.getElementById('del-pin-btn')?.addEventListener('click',()=>{closeDetail();deleteMyPin();});
   } else {
     document.getElementById('interest-btn-detail')?.addEventListener('click',()=>sendInterest(pin.id,pin.name));
@@ -2782,7 +3080,7 @@ function openDetailObj(pin){
   sheet('detail',true);
   setBackButton(closeDetail);
 }
-function closeDetail(){sheet('detail',false);clearBackButton();selectPin(null);}
+function closeDetail(){sheet('detail',false);clearBackButton();selectPin(null);_openEventId=null;}
 
 // ── FULLSCREEN PHOTO VIEWER ───────────────────────────────
 function openPhotoView(src,name){
@@ -2799,6 +3097,7 @@ function openMyPinDetail(){if(myPin)openDetailObj({...myPin,id:'mine'})}
 
 // ── INTEREST (с debounce и API) ───────────────────────────
 async function sendInterest(pinId,name){
+  if(String(pinId).startsWith('ex-')) return; // демо-метки никогда не создают заявок
   // Кнопка теперь имеет id="interest-btn-detail" (один detail открыт одновременно)
   const btn=document.getElementById('interest-btn-detail');
   if(!btn||btn.dataset.sending) return; // debounce
@@ -3061,7 +3360,7 @@ function handlePhoto(inp){
 function applyPhotoToUI(b64){
   const av=document.getElementById('prof-avatar-img');
   const initials=user&&user.name?user.name.charAt(0).toUpperCase():'👤';
-  av.innerHTML=b64?`<img src="${esc(b64)}" alt="">`:`${initials}`;
+  av.innerHTML=`<img src="${esc(b64||charAvatar(user?.name,user?.gender))}" alt="">`;
 }
 function removePhoto(){
   localStorage.removeItem('am_'+_UID+'_photo');if(API&&TG_INIT) apiCall('POST','/api/photo',{photo:null});
@@ -3085,6 +3384,7 @@ function updateProfileUI(){
   const cityDisplay=lang==='en'?(CITIES[user.city]?.en||user.city):user.city;
   document.getElementById('prof-city').textContent='📍 '+cityDisplay;
   document.getElementById('prof-city-val').textContent=cityDisplay;
+  const gv=document.getElementById('prof-gender-val');if(gv)gv.textContent=user.gender?t('g_'+user.gender):t('g_none');
   const cityToast=document.querySelector('.city-auto-name');
   if(cityToast) cityToast.textContent=cityDisplay;
 }
@@ -3094,6 +3394,34 @@ function changeName(){
   user.name=n.trim().slice(0,30);save('user',user);updateProfileUI();showToast(t('name_ok'));
 }
 function changeCityProfile(){sheet('city',true)}
+// ── ПОЛ (для аватарки-персонажа, пока нет фото) ──
+let selectedGenderReg=null;
+function pickRegGender(g){
+  selectedGenderReg=g;
+  document.querySelectorAll('#reg-gender .gender-opt').forEach(b=>b.classList.toggle('on',b.dataset.g===g));
+  if(tg) tg.HapticFeedback?.selectionChanged();
+}
+function openGenderSheet(){
+  document.querySelectorAll('#gender-sheet-pick .gender-opt').forEach(b=>b.classList.toggle('on',b.dataset.g===user?.gender));
+  sheet('gender',true);
+}
+function closeGenderSheet(){sheet('gender',false);save('genderAsked',true);}
+async function setGender(g){
+  if(!user) return;
+  user.gender=g;save('user',user);save('genderAsked',true);
+  document.querySelectorAll('#gender-sheet-pick .gender-opt').forEach(b=>b.classList.toggle('on',b.dataset.g===g));
+  updateProfileUI();
+  if(myPin){myPin.gender=g;save('myPin',myPin);}
+  allPins.forEach(p=>{if(p.id==='mine')p.gender=g;});
+  if(map) renderMapPins();
+  setTimeout(()=>sheet('gender',false),250);
+  showToast(t('gender_ok'));
+  if(API&&TG_INIT) await apiCall('POST','/api/profile/gender',{gender:g});
+}
+// Один раз спрашиваем пол у тех, кто зарегистрировался до появления этого поля
+function maybeAskGender(){
+  if(user&&!user.gender&&!load('genderAsked')&&!document.querySelector('.sheet.open')) openGenderSheet();
+}
 function closeCitySheet(){sheet('city',false)}
 function changeCityTo(city){
   user.city=city;save('user',user);

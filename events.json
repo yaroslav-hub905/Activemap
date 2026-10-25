@@ -1,0 +1,40 @@
+[
+  {
+    "id": "flawless-halloween-antwerp-2026",
+    "title": "Flawless Halloween Antwerpen",
+    "organizer": "Flawless Dynasty",
+    "organizer_url": "https://www.instagram.com/flawless.dynasty/",
+    "city": "Антверпен",
+    "venue": "SkyClub",
+    "address": "Kotterstraat 1, 2030 Antwerpen",
+    "lat": 51.243652,
+    "lng": 4.418344,
+    "starts_at": "2026-10-30T23:00:00+01:00",
+    "ends_at": "2026-10-31T05:00:00+01:00",
+    "description": "Хэллоуин-вечеринка от Flawless Dynasty — тусовки в Бельгии 🇧🇪. Костюмы приветствуются 🎃",
+    "price_text": "от €15.95 (+€1 сбор)",
+    "ticket_url": "https://shop.weeztix.com/3d501cf1-2ee6-4bad-a276-dbcbe7832225",
+    "emoji": "🎃",
+    "goal": 30,
+    "offline_going": 0
+  },
+  {
+    "id": "flawless-halloween-brussels-2026",
+    "title": "Flawless Halloween Brussels",
+    "organizer": "Flawless Dynasty",
+    "organizer_url": "https://www.instagram.com/flawless.dynasty/",
+    "city": "Брюссель",
+    "venue": "MANÏ Brussels",
+    "address": "Pl. Saint-Denis 15, 1190 Forest",
+    "lat": 50.810042,
+    "lng": 4.316403,
+    "starts_at": "2026-10-31T23:00:00+01:00",
+    "ends_at": "2026-11-01T05:00:00+01:00",
+    "description": "Хэллоуин-вечеринка от Flawless Dynasty — тусовки в Бельгии 🇧🇪. Костюмы приветствуются 🎃",
+    "price_text": "от €15.95 (+€1 сбор)",
+    "ticket_url": "https://shop.weeztix.com/d4398a12-52d9-4d49-a2a7-8a704a38dee2",
+    "emoji": "🎃",
+    "goal": 30,
+    "offline_going": 0
+  }
+]

@@ -102,33 +102,48 @@ def init_db():
             db.execute("ALTER TABLE users ADD COLUMN lng REAL")
         if "photo" not in user_cols:
             db.execute("ALTER TABLE users ADD COLUMN photo TEXT")
+        if "gender" not in user_cols:
+            # 'm' / 'f' / NULL — нужен для аватарки-персонажа, когда нет фото
+            db.execute("ALTER TABLE users ADD COLUMN gender TEXT")
 
         activity_cols = [r[1] for r in db.execute("PRAGMA table_info(activities)").fetchall()]
         if "lat" not in activity_cols:
             db.execute("ALTER TABLE activities ADD COLUMN lat REAL")
         if "lng" not in activity_cols:
             db.execute("ALTER TABLE activities ADD COLUMN lng REAL")
+        _ensure_events_schema(db)
         print(f"[DB] Инициализирована: {DB_PATH}")
+    sync_events_from_file()
 
 def get_user(tg_id: int) -> sqlite3.Row | None:
     with get_db() as db:
         return db.execute("SELECT * FROM users WHERE tg_id = ?", (tg_id,)).fetchone()
 
+def normalize_gender(g) -> str | None:
+    g = (g or "").strip().lower()
+    return g if g in ("m", "f") else None
+
 def upsert_user(tg_id: int, username: str | None,
                  name: str, age: int, city: str,
-                 lat: float | None = None, lng: float | None = None) -> None:
+                 lat: float | None = None, lng: float | None = None,
+                 gender: str | None = None) -> None:
     with get_db() as db:
         db.execute("""
-            INSERT INTO users (tg_id, username, name, age, city, lat, lng)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO users (tg_id, username, name, age, city, lat, lng, gender)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(tg_id) DO UPDATE SET
                 username = excluded.username,
                 name = excluded.name,
                 age = excluded.age,
                 city = excluded.city,
                 lat = COALESCE(excluded.lat, users.lat),
-                lng = COALESCE(excluded.lng, users.lng)
-        """, (tg_id, username, name, age, city, lat, lng))
+                lng = COALESCE(excluded.lng, users.lng),
+                gender = COALESCE(excluded.gender, users.gender)
+        """, (tg_id, username, name, age, city, lat, lng, normalize_gender(gender)))
+
+def update_user_gender(tg_id: int, gender: str | None) -> None:
+    with get_db() as db:
+        db.execute("UPDATE users SET gender = ? WHERE tg_id = ?", (normalize_gender(gender), tg_id))
 
 def update_user_city(tg_id: int, city: str) -> None:
     with get_db() as db:
@@ -150,7 +165,7 @@ def update_user_photo(tg_id: int, photo: str | None) -> None:
 def get_active_activity(user_id: int) -> sqlite3.Row | None:
     with get_db() as db:
         return db.execute("""
-            SELECT a.*, u.name, u.age, u.username, u.photo
+            SELECT a.*, u.name, u.age, u.username, u.photo, u.gender
             FROM activities a
             JOIN users u ON u.tg_id = a.user_id
             WHERE a.user_id = ?
@@ -188,7 +203,7 @@ def get_activities_in_city(city: str, category: str | None = None,
     with get_db() as db:
         if category:
             return db.execute("""
-                SELECT a.*, u.name, u.age, u.username, u.photo,
+                SELECT a.*, u.name, u.age, u.username, u.photo, u.gender,
                        (SELECT COUNT(*) FROM interests i WHERE i.activity_id = a.id) AS interest_count
                 FROM activities a
                 JOIN users u ON u.tg_id = a.user_id
@@ -201,7 +216,7 @@ def get_activities_in_city(city: str, category: str | None = None,
             """, (f"%{city}%", category, limit)).fetchall()
         else:
             return db.execute("""
-                SELECT a.*, u.name, u.age, u.username, u.photo,
+                SELECT a.*, u.name, u.age, u.username, u.photo, u.gender,
                        (SELECT COUNT(*) FROM interests i WHERE i.activity_id = a.id) AS interest_count
                 FROM activities a
                 JOIN users u ON u.tg_id = a.user_id
@@ -215,7 +230,7 @@ def get_activities_in_city(city: str, category: str | None = None,
 def get_all_active_activities(limit: int = 500) -> list[sqlite3.Row]:
     with get_db() as db:
         return db.execute("""
-            SELECT a.*, u.name, u.age, u.username, u.photo,
+            SELECT a.*, u.name, u.age, u.username, u.photo, u.gender,
                    (SELECT COUNT(*) FROM interests i WHERE i.activity_id = a.id) AS interest_count
             FROM activities a
             JOIN users u ON u.tg_id = a.user_id
@@ -275,6 +290,7 @@ def get_requests_for_user(tg_id: int) -> dict:
                 u.city AS from_city,
                 u.username AS from_username,
                 u.photo AS from_photo,
+                u.gender AS from_gender,
                 a.category, a.description, a.time_text
             FROM interests i
             JOIN activities a ON a.id = i.activity_id
@@ -291,6 +307,7 @@ def get_requests_for_user(tg_id: int) -> dict:
                 u.city AS to_city,
                 u.username AS to_username,
                 u.photo AS to_photo,
+                u.gender AS to_gender,
                 a.category, a.description, a.time_text
             FROM interests i
             JOIN activities a ON a.id = i.activity_id
@@ -359,3 +376,147 @@ def deactivate_all_activities(user_id: int) -> int:
             WHERE user_id = ? AND is_active = 1
         """, (user_id,))
         return cur.rowcount
+
+
+# ── События (метки мероприятий) ───────────────────────────────
+# Список событий хранится в events.json рядом с кодом и при каждом
+# запуске синхронизируется с базой: добавить/изменить событие = поправить файл
+# и задеплоить. Событие, удалённое из файла, скрывается (is_active = 0),
+# а отметки «Я пойду» сохраняются.
+import json as _json
+
+EVENTS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "events.json")
+_EVENT_FIELDS = ("title", "organizer", "organizer_url", "city", "venue", "address", "lat", "lng",
+                 "starts_at", "ends_at", "description", "price_text", "ticket_url", "emoji",
+                 "goal", "offline_going")
+
+
+def _ensure_events_schema(db) -> None:
+    db.executescript("""
+    CREATE TABLE IF NOT EXISTS events (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        organizer TEXT,
+        organizer_url TEXT,
+        city TEXT NOT NULL,
+        venue TEXT,
+        address TEXT,
+        lat REAL NOT NULL,
+        lng REAL NOT NULL,
+        starts_at TEXT NOT NULL,
+        ends_at TEXT NOT NULL,
+        description TEXT,
+        price_text TEXT,
+        ticket_url TEXT,
+        emoji TEXT,
+        goal INTEGER,
+        offline_going INTEGER NOT NULL DEFAULT 0,
+        is_active INTEGER NOT NULL DEFAULT 1
+    );
+    CREATE TABLE IF NOT EXISTS event_going (
+        event_id TEXT NOT NULL REFERENCES events(id),
+        user_id INTEGER NOT NULL REFERENCES users(tg_id),
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        PRIMARY KEY (event_id, user_id)
+    );
+    """)
+
+
+def sync_events_from_file(path: str = EVENTS_FILE) -> int:
+    """Загрузить events.json в базу (upsert). Возвращает число активных событий."""
+    if not os.path.exists(path):
+        return 0
+    try:
+        with open(path, encoding="utf-8") as f:
+            items = _json.load(f)
+    except Exception as e:
+        print(f"[DB] events.json не прочитан: {e}")
+        return 0
+    ids = []
+    with get_db() as db:
+        _ensure_events_schema(db)
+        for ev in items:
+            try:
+                ev_id = str(ev["id"]).strip()
+                datetime.fromisoformat(ev["starts_at"]); datetime.fromisoformat(ev["ends_at"])
+                vals = [ev.get(k) for k in _EVENT_FIELDS]
+                vals[_EVENT_FIELDS.index("offline_going")] = int(ev.get("offline_going") or 0)
+            except Exception as e:
+                print(f"[DB] событие пропущено ({ev.get('id')}): {e}")
+                continue
+            cols = ", ".join(_EVENT_FIELDS)
+            upd = ", ".join(f"{k}=excluded.{k}" for k in _EVENT_FIELDS)
+            db.execute(
+                f"INSERT INTO events (id, {cols}, is_active) VALUES (?{', ?' * len(_EVENT_FIELDS)}, 1) "
+                f"ON CONFLICT(id) DO UPDATE SET {upd}, is_active=1",
+                [ev_id, *vals],
+            )
+            ids.append(ev_id)
+        if ids:
+            db.execute(f"UPDATE events SET is_active=0 WHERE id NOT IN ({','.join('?' * len(ids))})", ids)
+        else:
+            db.execute("UPDATE events SET is_active=0")
+    return len(ids)
+
+
+def _event_is_upcoming(row) -> bool:
+    try:
+        end = datetime.fromisoformat(row["ends_at"])
+        now = datetime.now(end.tzinfo) if end.tzinfo else datetime.now()
+        return end > now
+    except Exception:
+        return False
+
+
+def get_upcoming_events(user_id: int | None = None) -> list[dict]:
+    """Активные, ещё не закончившиеся события + сколько человек идёт."""
+    with get_db() as db:
+        _ensure_events_schema(db)
+        rows = db.execute("""
+            SELECT e.*, (SELECT COUNT(*) FROM event_going g WHERE g.event_id = e.id) AS app_going
+            FROM events e WHERE e.is_active = 1 ORDER BY e.starts_at
+        """).fetchall()
+        mine = set()
+        if user_id:
+            mine = {r["event_id"] for r in db.execute(
+                "SELECT event_id FROM event_going WHERE user_id = ?", (user_id,)).fetchall()}
+    out = []
+    for r in rows:
+        if not _event_is_upcoming(r):
+            continue
+        d = dict(r)
+        d.pop("is_active", None)
+        d["i_going"] = d["id"] in mine
+        out.append(d)
+    return out
+
+
+def get_event(event_id: str) -> sqlite3.Row | None:
+    with get_db() as db:
+        _ensure_events_schema(db)
+        return db.execute("SELECT * FROM events WHERE id = ? AND is_active = 1", (event_id,)).fetchone()
+
+
+def set_event_going(event_id: str, user_id: int, going: bool) -> int | None:
+    """Отметить/снять «Я пойду». Возвращает новое число идущих через приложение или None, если события нет."""
+    ev = get_event(event_id)
+    if not ev or not _event_is_upcoming(ev):
+        return None
+    with get_db() as db:
+        if going:
+            db.execute("INSERT OR IGNORE INTO event_going (event_id, user_id) VALUES (?, ?)", (event_id, user_id))
+        else:
+            db.execute("DELETE FROM event_going WHERE event_id = ? AND user_id = ?", (event_id, user_id))
+        return db.execute("SELECT COUNT(*) FROM event_going WHERE event_id = ?", (event_id,)).fetchone()[0]
+
+
+def get_event_goers(event_id: str, limit: int = 12) -> list[dict]:
+    """Кто идёт (последние отметившиеся первыми): имя, возраст, фото — только для аватарок в карточке."""
+    with get_db() as db:
+        rows = db.execute("""
+            SELECT u.name, u.age, u.photo, u.gender FROM event_going g
+            JOIN users u ON u.tg_id = g.user_id
+            WHERE g.event_id = ? AND u.is_banned = 0
+            ORDER BY g.created_at DESC, g.rowid DESC LIMIT ?
+        """, (event_id, limit)).fetchall()
+    return [dict(r) for r in rows]
